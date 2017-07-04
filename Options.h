@@ -8,57 +8,51 @@
 #include <thread>
 #include <err.h>
 #include <stdlib.h>
-#include <boost/archive/text_oarchive.hpp>
-#include <boost/archive/text_iarchive.hpp>
+//#include <boost/archive/text_oarchive.hpp>
+//#include <boost/archive/text_iarchive.hpp>
+
+#include "single_option.h"
 
 typedef std::map<std::string, std::string> optmap;
 
+
 class Options {
-    friend class boost::serialization::access;
     unsigned int nthreads = 1;
     bool restart = false;
     std::string null = "";
     std::string default_checkpointdir = "./metrictest.checkpoint";
     std::string checkpointfname = "options.checkpoint";
-    optmap strvalues = {
-        { "progname", "" },
-        { "fastafile", "" },
-        { "metricname", "" },
-        { "metricopts", "" },
-        { "distmatfname", "" },
-        { "submetricname", "" },
-        { "checkpointdname", default_checkpointdir },
-        { "nthreads", std::to_string(nthreads) },
-        { "restart", "false" },
+    optmap strvalues;
+
+    single_option options[9] = {
+        { std::string("fasta file containing sequences; required"),
+	  std::string("fasta"), 'f', required_argument, std::string("") },
+        { std::string("distance measure to use; required"),
+	  std::string("metric"), 'm', required_argument, std::string("") },
+        { std::string("submetric to use; optional; depends on the distance measure"),
+	  std::string("submetric"), 's', required_argument, std::string("") },
+        { std::string("options for the distance measure; depends on the measure"),
+	  std::string("metricopt"), 'o', required_argument, std::string("") },
+        { std::string("distance matrix file name; required"),
+	  std::string("distmatfname"), 'd', required_argument, std::string("") },
+        { std::string("number of CPU cores to use; optional; default: 1"),
+	  std::string("ncores"), 't', required_argument, std::string("1") },
+        { std::string("checkpoint directory; required"),
+	  std::string("checkpoint"), 'c', required_argument, std::string("./metrictest.checkpoint") },
+        { std::string("restart from checkpoint; optional; default: not restarting from checkpoing"),
+	  std::string("restart"), 'r', no_argument, std::string("false") }
+        { std::string("program name; never set this"),
+	  std::string("progname"), 'p', required_argument, std::string("") }
     };
 
-    void print_usage(void) {
-	std::cout << "Usage: " << strvalues["progname"]
-		  << " --fasta=fname"
-		  << " --metric=metricname"
-		  << " --submetric=submetricname"
-		  << " --metricopt=options"
-		  << " --nthreads=n"
-	          << std::endl;
-    };
-//    void initialize_map(std::string pname) {
-//	    strvalues.insert(std::pair<std::string, std::string>("progname", pname));
-//            strvalues.insert(std::pair<std::string, std::string>("fastafile", null));
-//            strvalues.insert(std::pair<std::string, std::string>("metricname", null));
-//            strvalues.insert(std::pair<std::string, std::string>("metricopts", null));
-//            strvalues.insert(std::pair<std::string, std::string>("distmatfname", null));
-//            strvalues.insert(std::pair<std::string, std::string>("submetricname", null)); // might never be set
-//            strvalues.insert(std::pair<std::string, std::string>("checkpointdname", default_checkpointdir));
-//            strvalues.insert(std::pair<std::string, std::string>("nthreads", std::to_string(nthreads)));
-//            strvalues.insert(std::pair<std::string, std::string>("restart", std::to_string(restart)));
-//	};
+    void print_usage(void);
+    void initialize_map(void);
     void processopts(int argc, char **argv);
 
     public:
-        //Options(std::string pname) { set("progname", pname); };
         Options(int argc, char **argv) {
-	    std::string pname(argv[0]);
-	    //initialize_map(pname);
+	    std::cerr << "Constructor\n";
+	    //initialize_map();
 	    processopts(argc, argv);
 	};
 

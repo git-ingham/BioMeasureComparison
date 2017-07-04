@@ -22,10 +22,10 @@ Options::set(const std::string key, const std::string value)
 		 nthreads, std::thread::hardware_concurrency());
     }
     if (key.compare("restart") == 0) {
-	if (value.compare("true") == 0) {
+	if (value.compare("true") == 0 || value.compare("1") == 0) {
 	    restart = true;
 	} else {
-	    if (value.compare("false") == 0)
+	    if (value.compare("false") == 0 || value.compare("0") == 0)
 		restart = false;
 	    else 
 		errx(1, "Value '%s' for restart is neither 'true' nor 'false'", value.c_str());
@@ -36,10 +36,7 @@ Options::set(const std::string key, const std::string value)
 void 
 Options::processopts(int argc, char **argv)
 {
-    extern std::string fastafile, metricname, submetricname, metricopts, distmatfname;
-    extern std::string checkpointfname;
-
-    strvalues.at("progname") = argv[0];
+    strvalues.at("progname") = std::string(argv[0]);
 
     // Option processing
     while (1) {
@@ -141,4 +138,29 @@ Options::checkpoint(void)
 	cpf << it->second << std::endl;
     }
     cpf.close();
+}
+
+void
+Options::print_usage(void) {
+    std::cout << "Usage: " << strvalues["progname"]
+	      << " --fasta=fname"
+	      << " --metric=metricname"
+	      << " --submetric=submetricname"
+	      << " --metricopt=options"
+	      << " --nthreads=n"
+	      << std::endl;
+}
+
+void
+Options::initialize_map(void) {
+    std::cerr << "initialize_map()\n";
+    strvalues.insert(std::pair<std::string, std::string>("progname", null));
+    strvalues.insert(std::pair<std::string, std::string>("fastafile", null));
+    strvalues.insert(std::pair<std::string, std::string>("metricname", null));
+    strvalues.insert(std::pair<std::string, std::string>("metricopts", null));
+    strvalues.insert(std::pair<std::string, std::string>("distmatfname", null));
+    strvalues.insert(std::pair<std::string, std::string>("submetricname", null)); // might never be set
+    strvalues.insert(std::pair<std::string, std::string>("checkpointdname", default_checkpointdir));
+    strvalues.insert(std::pair<std::string, std::string>("nthreads", std::to_string(nthreads)));
+    strvalues.insert(std::pair<std::string, std::string>("restart", std::to_string(restart)));
 }

@@ -20,7 +20,7 @@ class editmetric : public metric {
 	//### probably need a cost function for a separate test
 	//### this can come in through the init function.
 
-	long double compare(const FastaRecord& a, const FastaRecord& b);
+	long double compare(const FastaRecord& a, const FastaRecord& b) const;
     
 	//metric& operator=(const metric &c) {return *this;};
 

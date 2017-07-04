@@ -17,16 +17,17 @@ class distancematrix {
 	unsigned int vecsize;
 	const mode_t filemode = S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH;
 
-	unsigned int sub(const unsigned int i, const unsigned int j);
-	void checkij(const unsigned int i, const unsigned int j);
+	unsigned int sub(const unsigned int i, const unsigned int j) const;
+	void checkij(const unsigned int i, const unsigned int j) const;
 
     public:
 	distancematrix(const unsigned int sizep, const std::string filenamep);
 	distancematrix(const std::string filenamep);
 	~distancematrix();
-	long double get(const unsigned int, const unsigned int);
+	long double get(const unsigned int, const unsigned int) const;
 	void set(const unsigned int, const unsigned int, const long double);
-	void print(void);
+	void print(void) const;
+	unsigned int get_size() const {return size;};
 };
 
 #endif // DISTANCEMATRIX_H

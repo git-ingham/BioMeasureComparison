@@ -24,8 +24,8 @@ class kmermetric : public metric {
 
     void calculate_set(const std::string& seq);
 
-    long double euclideancompare(const std::string& aseq, const std::string& bseq);
-    long double cosinecompare(const std::string& aseq, const std::string& bseq);
+    long double euclideancompare(const std::string& aseq, const std::string& bseq) const;
+    long double cosinecompare(const std::string& aseq, const std::string& bseq) const;
 
     public:
 	void init(void) { n = default_n; };
@@ -40,7 +40,7 @@ class kmermetric : public metric {
 	    std::cerr << "    variant: " << atostring(algorithm) << std::endl;
 	};
 
-	long double compare(const FastaRecord& a, const FastaRecord& b);
+	long double compare(const FastaRecord& a, const FastaRecord& b) const;
 
 	// member functions beyond metric
 	unsigned int get_n(void) const { return n; };

@@ -19,7 +19,7 @@ kmermetric::calculate_set(const std::string& seq)
 }
 
 long double
-kmermetric::compare(const FastaRecord& a, const FastaRecord& b)
+kmermetric::compare(const FastaRecord& a, const FastaRecord& b) const
 {
     const std::string aseq = a.get_seq();
     const std::string bseq = b.get_seq();
@@ -32,11 +32,14 @@ kmermetric::compare(const FastaRecord& a, const FastaRecord& b)
     //std::cerr << bseq << std::endl;
     //std::cerr << kmers.size() << std::endl;
 
-    // lazy evaluation; if we have never seen this sequence before, calculate the kmers.
-    if (kmers.count(aseq) == 0)
-        calculate_set(aseq);
+    // sanity check
+    if (kmers.count(aseq) == 0) {
+	std::cerr << "kmermetric::compare aseq not pre-calculated!" << std::endl;
+	exit(1);
+    }
     if (kmers.count(bseq) == 0) {
-        calculate_set(bseq);
+	std::cerr << "kmermetric::compare bseq not pre-calculated!" << std::endl;
+	exit(1);
     }
 
 //    static bool printed = false;
@@ -59,15 +62,15 @@ kmermetric::compare(const FastaRecord& a, const FastaRecord& b)
  * Euclidean distance based on frequency counts
  */
 long double
-kmermetric::euclideancompare(const std::string& aseq, const std::string& bseq)
+kmermetric::euclideancompare(const std::string& aseq, const std::string& bseq) const
 {
     long double dist = 0.0;
 
     // a -> b
     //std::cerr << aseq << ", " << bseq << std::endl;
-    for (kmer_t::iterator g = kmers[aseq]->begin(); g!=kmers[aseq]->end(); ++g) {
+    for (kmer_t::const_iterator g = kmers.at(aseq)->begin(); g!=kmers.at(aseq)->end(); ++g) {
         std::string kmer = g->first;
-	if (kmers[bseq]->count(kmer) > 0) {
+	if (kmers.at(bseq)->count(kmer) > 0) {
 	    int t = kmers.at(aseq)->at(kmer) - kmers.at(bseq)->at(kmer);
 	    dist += t*t;
 	    //std::cerr << kmer << " " << kmers.at(aseq)->at(kmer) << ", "
@@ -83,9 +86,9 @@ kmermetric::euclideancompare(const std::string& aseq, const std::string& bseq)
     //std::cerr << "b -> a" << std::endl;
 
     // b -> a, but only for the kmers that are in b and not in a
-    for (kmer_t::iterator g = kmers[bseq]->begin(); g!=kmers[bseq]->end(); ++g) {
+    for (kmer_t::const_iterator g = kmers.at(bseq)->begin(); g!=kmers.at(bseq)->end(); ++g) {
 	std::string kmer = g->first;
-	if (kmers[aseq]->count(kmer) == 0) {
+	if (kmers.at(aseq)->count(kmer) == 0) {
 	    unsigned int t = kmers.at(bseq)->at(kmer);
 	    dist += t*t;
 	}
@@ -101,7 +104,7 @@ kmermetric::euclideancompare(const std::string& aseq, const std::string& bseq)
  * https://en.wikipedia.org/wiki/Cosine_similarity
  */
 long double
-kmermetric::cosinecompare(const std::string& aseq, const std::string& bseq)
+kmermetric::cosinecompare(const std::string& aseq, const std::string& bseq) const
 {
     long double dotproduct = 0.0;
     long double asum = 0;
@@ -109,14 +112,14 @@ kmermetric::cosinecompare(const std::string& aseq, const std::string& bseq)
 
     // all we care about are those kmers in common; others have a 0 product and
     // contribute nothing to the final result.
-    for (kmer_t::iterator g = kmers[aseq]->begin(); g!=kmers[aseq]->end(); ++g) {
+    for (kmer_t::const_iterator g = kmers.at(aseq)->begin(); g!=kmers.at(aseq)->end(); ++g) {
         std::string kmer = g->first;
-	if (kmers[bseq]->count(kmer) > 0)
+	if (kmers.at(bseq)->count(kmer) > 0)
 	    dotproduct += kmers.at(aseq)->at(kmer) * kmers.at(bseq)->at(kmer);
 	asum += kmers.at(aseq)->at(kmer)*kmers.at(aseq)->at(kmer);
     }
 
-    for (kmer_t::iterator g = kmers[bseq]->begin(); g!=kmers[bseq]->end(); ++g) {
+    for (kmer_t::const_iterator g = kmers.at(bseq)->begin(); g!=kmers.at(bseq)->end(); ++g) {
 	std::string kmer = g->first;
 	bsum += kmers.at(bseq)->at(kmer) * kmers.at(bseq)->at(kmer);
     }

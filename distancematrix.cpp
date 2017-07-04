@@ -6,6 +6,7 @@
 #include <err.h>
 #include <sys/mman.h>
 #include <iostream>
+#include <thread>
 #include <iomanip>
 #include <unistd.h>
 #include <math.h>
@@ -28,7 +29,7 @@ distancematrix::distancematrix(const unsigned int sizep, const std::string filen
     fd = open(filename.c_str(), O_RDWR|O_CREAT|O_TRUNC, filemode);
     if (fd < 0) err(1, "Cannot open %s", filename.c_str());
 
-    vecsize = (size*size) / 2 + size;
+    vecsize = size*size/2 + size;
     allocsize = vecsize * sizeof(long double);
     std::cerr << "vecsize: " << vecsize << "; allocsize: " << allocsize << std::endl;
     if (ftruncate(fd, allocsize) < 0)
@@ -68,19 +69,22 @@ distancematrix::~distancematrix()
 }
 
 unsigned int 
-distancematrix::sub(const unsigned int i, const unsigned int j)
+distancematrix::sub(const unsigned int i, const unsigned int j) const
 {
     // i * size + j if we were a full matrix.
     // Each row has i unused elements; the sum of these is i*(i-1)/2
     // j >= i
-    unsigned int s;
-    s = i*(size - 1) + j - i*(i-1)/2;
-    if (s > vecsize) errx(1, "i %u j %u out of range (vecsize: %u); this should not happen", i, j, vecsize);
-    return s;
+    //k = i*(size - 1) + j - i*(i-1)/2;
+
+    unsigned int k;
+    //k = i + j*(j-i)/2;
+    k = j*(j+1)/2 + i;
+    if (k > vecsize) errx(1, "i %u j %u k %u out of range (vecsize: %u); this should not happen", i, j, k, vecsize);
+    return k;
 }
 
 void
-distancematrix::checkij(const unsigned int i, const unsigned int j)
+distancematrix::checkij(const unsigned int i, const unsigned int j) const
 {
     bool error = false;
     std::string errmsg;
@@ -105,11 +109,11 @@ distancematrix::checkij(const unsigned int i, const unsigned int j)
 }
 
 long double
-distancematrix::get(const unsigned int i, const unsigned int j)
+distancematrix::get(const unsigned int i, const unsigned int j) const
 {
     checkij(i, j);
     unsigned int k = sub(i, j);
-    std::cerr << "get: i " << i << "; j " << j << "; k " << k << std::endl;
+    //std::cerr << "get: i " << i << "; j " << j << "; k " << k << std::endl;
     return vec[k];
 }
 
@@ -119,12 +123,16 @@ distancematrix::set(const unsigned int i, const unsigned int j, const long doubl
     checkij(i, j);
     unsigned int k = sub(i, j);
 
-    //std::cerr << "set: i " << i << "; j " << j << "; k " << k << std::endl;
+//    char *msg;
+//    asprintf(&msg, "set: i %u; j %u; k %u; thread %u\n", i, j, k,
+//             std::this_thread::get_id());
+//    std::cerr << msg;
+//    free(msg);
     vec[k] = d;
 }
 
 void
-distancematrix::print(void)
+distancematrix::print(void) const
 {
     long double max = 0;
     for (unsigned int i=0; i<vecsize; ++i) 

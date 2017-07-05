@@ -7,21 +7,146 @@
 #include <iostream>
 #include <fstream>
 
+Options::Options(int argc, char **argv)
+{
+    bool error = false;
+    
+    po::options_description desc("Allowed options");
+    desc.add_options()
+	("help", "produce help message")
+        ("fasta", po::value<std::string>(), "fasta file containing sequences; required")
+	("metric", po::value<std::string>(), "distance measure to use; required")
+        ("submetric", po::value<std::string>(),
+	 "submetric to use; optional; depends on the distance measure")
+        ("metricopt", po::value<std::string>(),
+	 "options for the distance measure; depends on the measure")
+        ("distmatfname", po::value<std::string>(), "distance matrix file name; required")
+        ("ncores", po::value<std::string>(),
+	 "number of CPU cores to use; optional; default: 1")
+        ("checkpoint", po::value<std::string>(), "checkpoint directory; required only if restarting")
+        ("restart",
+	 "restart from checkpoint; optional; default: not restarting from checkpoint")
+    ;
+    po::variables_map vm;
+    po::store(po::parse_command_line(argc, argv, desc), vm);
+    po::notify(vm);
+
+    if (vm.count("help")) {
+        std::cout << desc << std::endl;
+	exit(1);
+    }
+
+    if (vm.count("checkpoint"))
+       set("checkpoint", vm["checkpoint"].as<std::string>());
+    // no else because optional
+    if (vm.count("distmatfname"))
+       set("distmatfname", vm["distmatfname"].as<std::string>());
+    else {
+	std::cerr << "Missing required option '--distmatfname'" << std::endl;
+	error = true;
+    }
+    if (vm.count("fasta"))
+       set("fasta", vm["fasta"].as<std::string>());
+    else {
+	std::cerr << "Missing required option '--fasta'" << std::endl;
+	error = true;
+    }
+    if (vm.count("metric"))
+       set("metric", vm["metric"].as<std::string>());
+    else {
+	std::cerr << "Missing required option '--metric'" << std::endl;
+	error = true;
+    }
+    if (vm.count("submetric"))
+       set("submetric", vm["submetric"].as<std::string>());
+    // no else because optional
+    if (vm.count("metricopt"))
+       set("metricopt", vm["metricopt"].as<std::string>());
+    // no else because optional
+    if (vm.count("ncores"))
+       set("ncores", vm["ncores"].as<std::string>());
+    // no else because optional
+    if (vm.count("restart"))
+        set("restart", "true");
+
+    if (error) {
+         std::cerr << desc << std::endl;
+	 exit(1);
+    }
+};
+
+std::string
+Options::get(const std::string key) const
+{
+    if (key.compare("checkpointdir") == 0)
+        return checkpointdir;
+    if (key.compare("distmatfname") == 0)
+        return distmatfname;
+    if (key.compare("fasta") == 0)
+        return fastafile;
+    if (key.compare("metric") == 0)
+	return metricname;
+    if (key.compare("submetric") == 0)
+	return submetricname;
+    if (key.compare("metricopt") == 0)
+	return metricopts;
+    if (key.compare("ncores") == 0)
+	return std::to_string(ncores);
+    if (key.compare("restart") == 0)
+        return restart ? "true" : "false";
+
+    std::cerr << "Options::get: No known key '" << key << "'" << std::endl;
+    abort();
+}
+
 void
 Options::set(const std::string key, const std::string value)
 {
+    bool foundkey = false;
+
     if (value.find('\n') != std::string::npos)
         errx(1, "key '%s' value '%s' contains an embedded newline", key.c_str(), value.c_str());
 
-    strvalues.at(key) = value;
-
-    if (key.compare("nthreads") == 0) {
-	nthreads = stoi(value);
-	if (nthreads > std::thread::hardware_concurrency())
-	    errx(1, "nthreads '%u' is greater than system cores (%u)",
-		 nthreads, std::thread::hardware_concurrency());
+    if (key.compare("checkpoint") == 0) {
+	foundkey = true;
+	checkpointdir = value;
+	// ### No error checking here?
+    }
+    if (key.compare("distmatfname") == 0) {
+	foundkey = true;
+	distmatfname = value;
+	// ### No error checking here?
+    }
+    if (key.compare("fasta") == 0) {
+	foundkey = true;
+	fastafile = value;
+	if (!fileexists(fastafile)) 
+	    errx(1, "fastafile '%s' does not exist", fastafile.c_str());
+    }
+    if (key.compare("metric") == 0) {
+	foundkey = true;
+	metricname = value;
+	// ### No error checking here?
+    }
+    if (key.compare("submetric") == 0) {
+	foundkey = true;
+	submetricname = value;
+	// ### No error checking here?
+    }
+    if (key.compare("metricopt") == 0) {
+	foundkey = true;
+	metricopts = value;
+	// ### No error checking here?
+    }
+    if (key.compare("ncores") == 0) {
+	foundkey = true;
+	ncores = stoi(value);
+	if (ncores > std::thread::hardware_concurrency())
+	    errx(1, "ncores '%u' is greater than system cores (%u)",
+		 ncores, std::thread::hardware_concurrency());
     }
     if (key.compare("restart") == 0) {
+	foundkey = true;
 	if (value.compare("true") == 0 || value.compare("1") == 0) {
 	    restart = true;
 	} else {
@@ -31,81 +156,22 @@ Options::set(const std::string key, const std::string value)
 		errx(1, "Value '%s' for restart is neither 'true' nor 'false'", value.c_str());
 	}
     }
+
+    if (! foundkey) 
+        errx(1, "Options::set: No known key '%s'", key.c_str());
 }
 
-void 
-Options::processopts(int argc, char **argv)
+bool
+Options::fileexists(std::string fname)
 {
-    strvalues.at("progname") = std::string(argv[0]);
-
-    // Option processing
-    while (1) {
-	int c;
-        static struct option long_options[] = {
-	    {"fasta", required_argument, 0, 'f'},
-	    {"metric", required_argument, 0, 'm'},
-	    {"submetric", optional_argument, 0, 's'},
-	    {"metricopt", optional_argument, 0, 'o'},
-	    {"distmatfname", required_argument, 0, 'd'},
-	    {"nthreads", required_argument, 0, 't'},
-	    {"checkpoint", required_argument, 0, 'c'},
-	    {"restart", no_argument, 0, 'r'},
-	};
-	int option_index = 0;
-
-	c = getopt_long (argc, argv, "f:", long_options, &option_index);
-	if (c == -1) break;
-
-	switch (c) {
-	case 'r':
-	    set("restart", "true");
-	    break;
-	case 't':
-	    set("nthreads", optarg);
-	    break;
-	case 'c':
-	    set("checkpointfname", optarg);
-	    break;
-	case 'd':
-	    strvalues["distmatfname"] = optarg;
-	    break;
-	case 'f':
-            strvalues["fastafile"] = optarg;
-	    break;
-	case 'm':
-	    strvalues["metricname"] = optarg;
-	    break;
-	case 's':
-	    strvalues["submetricname"] = optarg;
-	    break;
-	case 'o':
-	    strvalues["metricopts"] = optarg;
-	    break;
-
-	case '?':
-	    /* getopt_long already printed an error message. */
-	    break;
-
-	default:
-	    abort ();
-	}
+    struct stat info;
+    if (stat(fname.c_str(), &info) < 0) {
+	if (errno == ENOENT)
+	    return false;
+	else 
+	    err(1, "Options::fileexists stat failed");
     }
-
-    if (strvalues.at("fastafile").empty()) {
-        std::cerr << "Missing required flag '-f' or '--fasta'" << std::endl;
-	print_usage();
-	exit(1);
-    }
-    if (strvalues.at("metricname").empty()) {
-        std::cerr << "Missing required flag '-m' or '--metric'" << std::endl;
-	print_usage();
-	exit(1);
-    }
-    if (nthreads <= 0) {
-        std::cerr << "nthreads (" << nthreads << ") <= 0 must be > 0" << std::endl;
-	print_usage();
-	exit(1);
-    }
+    return true;
 }
 
 void
@@ -113,7 +179,7 @@ Options::checkpoint(void)
 {
     struct stat info;
 
-    const char *dname = get("checkpointdname").c_str();
+    const char *dname = checkpointdir.c_str();
 
     std::cerr << "dname: " << dname << std::endl;
 
@@ -129,38 +195,16 @@ Options::checkpoint(void)
     }
 
     // If we are here, the directory exists.
-    std::string fname = get("checkpointdname") + "/" + checkpointfname;
+    std::string fname = checkpointdir + "/" + checkpointfname;
     std::ofstream cpf;
     cpf.open(fname);
 
-    for (optmap::const_iterator it = strvalues.begin(); it != strvalues.end(); ++it) {
-	cpf << it->first << std::endl;
-	cpf << it->second << std::endl;
-    }
+    cpf << "ncores" << std::endl << ncores << std::endl;
+    cpf << "distmatfname " << std::endl << distmatfname  << std::endl;
+    cpf << "fastafile " << std::endl << fastafile  << std::endl;
+    cpf << "metricname " << std::endl << metricname  << std::endl;
+    cpf << "submetricname " << std::endl << submetricname  << std::endl;
+    cpf << "metricopts " << std::endl << metricopts  << std::endl;
+
     cpf.close();
-}
-
-void
-Options::print_usage(void) {
-    std::cout << "Usage: " << strvalues["progname"]
-	      << " --fasta=fname"
-	      << " --metric=metricname"
-	      << " --submetric=submetricname"
-	      << " --metricopt=options"
-	      << " --nthreads=n"
-	      << std::endl;
-}
-
-void
-Options::initialize_map(void) {
-    std::cerr << "initialize_map()\n";
-    strvalues.insert(std::pair<std::string, std::string>("progname", null));
-    strvalues.insert(std::pair<std::string, std::string>("fastafile", null));
-    strvalues.insert(std::pair<std::string, std::string>("metricname", null));
-    strvalues.insert(std::pair<std::string, std::string>("metricopts", null));
-    strvalues.insert(std::pair<std::string, std::string>("distmatfname", null));
-    strvalues.insert(std::pair<std::string, std::string>("submetricname", null)); // might never be set
-    strvalues.insert(std::pair<std::string, std::string>("checkpointdname", default_checkpointdir));
-    strvalues.insert(std::pair<std::string, std::string>("nthreads", std::to_string(nthreads)));
-    strvalues.insert(std::pair<std::string, std::string>("restart", std::to_string(restart)));
 }

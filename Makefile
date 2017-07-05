@@ -1,7 +1,7 @@
 CXX=g++
 INC=-Iedit_distance/include
 CXXFLAGS=-Wall -g $(INC)
-LDFLAGS=-lm -pthread
+LDFLAGS=-lm -pthread -lboost_program_options
 
 
 OBJS = fasta.o Options.o metric.o editmetric.o kmermetric.o createmetric.o\

@@ -44,7 +44,8 @@ checksanity(const distancematrix& d)
         std::cerr << n << " zero non-self distances" << std::endl;
 }
 
-void worker(const metric *m, distancematrix *distance, const fastavec_t &sequences, unsigned int nthreads, unsigned int workernum)
+void
+worker(const metric *m, distancematrix *distance, const fastavec_t &sequences, unsigned int nthreads, unsigned int workernum)
 {
     // each worker does rows where row % nthreads == workernum
     // no barrier needed because each worker writes to different locations.
@@ -64,11 +65,11 @@ main (int argc, char **argv)
 
     Options opts(argc, argv);
     opts.checkpoint();
-    nthreads = opts.get_nthreads();
 
+    nthreads = opts.get_ncores();
     threads.reserve(nthreads);
 
-    fastavec_t sequences = readfastafile(opts.get("fastafile"));
+    fastavec_t sequences = readfastafile(opts.get("fasta"));
 
     metric *m = createmetric(opts, sequences);
 
@@ -77,10 +78,10 @@ main (int argc, char **argv)
 
     distancematrix distance(sequences.size(), opts.get("distmatfname"));
 
-    for (unsigned int i=0; i < nthreads; i++) {
+    for (unsigned int i=0; i < nthreads; ++i) {
         threads[i] = std::thread(worker, m, &distance, sequences, nthreads, i);
     }
-    for (unsigned int i=0; i < nthreads; i++) {
+    for (unsigned int i=0; i < nthreads; ++i) {
         threads[i].join();
     }
     if (getrusage(RUSAGE_SELF, &endusage) < 0) 

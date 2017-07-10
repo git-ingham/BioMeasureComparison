@@ -7,6 +7,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <err.h>
+#include <exception>
 
 #include "fasta.h"
 #include "metric.h"
@@ -44,15 +45,44 @@ checksanity(const distancematrix& d)
         std::cerr << n << " zero non-self distances" << std::endl;
 }
 
+std::mutex checkpoint_mutex;
+
 void
-worker(const metric *m, distancematrix *distance, const fastavec_t &sequences, unsigned int nthreads, unsigned int workernum)
+checkpoint(unsigned int i, unsigned int workernum, std::string checkpointdir)
+{
+    const std::string fnamebase = "worker";
+    // assumes that dir exists; options checkpoint occurs before here
+    // Checking will require additional locking and slow the system.
+    
+    checkpoint_mutex.lock();
+
+    std::string fname = checkpointdir + "/" + fnamebase + std::to_string(workernum) + ".checkpoint";
+    std::ofstream cpf;
+    cpf.open(fname);
+    cpf << "workernum" << std::endl << workernum << std::endl;
+    cpf << "i" << std::endl << i << std::endl;
+    cpf.close();
+
+    checkpoint_mutex.unlock();
+}
+
+void
+worker(const metric *m, distancematrix *distance, const fastavec_t &sequences,
+       unsigned int nthreads, unsigned int workernum, std::string checkpointdir)
 {
     // each worker does rows where row % nthreads == workernum
     // no barrier needed because each worker writes to different locations.
-    for (unsigned int i=workernum; i<sequences.size(); i = i + nthreads) {
-	for (unsigned int j=i; j<sequences.size(); ++j) {
-	    distance->set(i, j, m->compare(sequences[i], sequences[j]));
+    try {
+	for (unsigned int i=workernum; i<sequences.size(); i = i + nthreads) {
+	    for (unsigned int j=i; j<sequences.size(); ++j) {
+		distance->set(i, j, m->compare(sequences[i], sequences[j]));
+		checkpoint(i, workernum, checkpointdir);
+	    }
 	}
+    }
+    catch (std::exception& e) {
+	std::cerr << "Caught an exception in worker " << workernum << " "
+		  << e.what() << std::endl;
     }
 }
 
@@ -60,14 +90,14 @@ int
 main (int argc, char **argv)
 {
     struct rusage startusage, endusage;
-    std::vector<std::thread> threads;
     unsigned int nthreads;
 
     Options opts(argc, argv);
+    opts.cleancheckpointdir();
     opts.checkpoint();
 
     nthreads = opts.get_ncores();
-    threads.reserve(nthreads);
+    std::thread threads[nthreads];
 
     fastavec_t sequences = readfastafile(opts.get("fasta"));
 
@@ -79,11 +109,13 @@ main (int argc, char **argv)
     distancematrix distance(sequences.size(), opts.get("distmatfname"));
 
     for (unsigned int i=0; i < nthreads; ++i) {
-        threads[i] = std::thread(worker, m, &distance, sequences, nthreads, i);
+        threads[i] = std::thread(worker, m, &distance, sequences, nthreads, i,
+	                         opts.get("checkpointdir"));
     }
     for (unsigned int i=0; i < nthreads; ++i) {
         threads[i].join();
     }
+
     if (getrusage(RUSAGE_SELF, &endusage) < 0) 
         err(1, "getrusage end failed");
     
@@ -100,7 +132,7 @@ main (int argc, char **argv)
 
     checksanity(distance);
 
-    distance.print();
+    //distance.print();
 
     return 0;
 }

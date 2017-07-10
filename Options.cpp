@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <iostream>
 #include <fstream>
+#include <boost/filesystem.hpp>
+namespace fs = boost::filesystem;
 
 Options::Options(int argc, char **argv)
 {
@@ -175,24 +177,16 @@ Options::fileexists(std::string fname)
 }
 
 void
+Options::cleancheckpointdir(void)
+{
+    for (directory_entry& x : directory_iterator(p))
+	cout << x.path() << '\n';
+}
+
+void
 Options::checkpoint(void)
 {
-    struct stat info;
-
-    const char *dname = checkpointdir.c_str();
-
-    std::cerr << "dname: " << dname << std::endl;
-
-    // If dir does not exist, create it if possible
-    if (stat(dname, &info) < 0) {
-        if (errno == ENOENT) {
-	    warnx("checkpoint directory '%s' does not exist; about to create it.", dname);
-	    if (mkdir(dname, 0755) < 0) {
-	        err(1, "directory '%s' does not exist and creating it failed", dname);
-	    }
-	} else 
-	    err(1, "stat on '%s' failed", dname);
-    }
+    checkmakedir(checkpointdir); // exits on failure
 
     // If we are here, the directory exists.
     std::string fname = checkpointdir + "/" + checkpointfname;
@@ -208,3 +202,26 @@ Options::checkpoint(void)
 
     cpf.close();
 }
+
+// ### should thrown an exception instead of exiting on failure
+bool
+Options::checkmakedir(std::string checkpointdir)
+{
+    struct stat info;
+    const char *dname = checkpointdir.c_str();
+
+    //std::cerr << "dname: " << dname << std::endl;
+
+    // If dir does not exist, create it if possible
+    if (stat(dname, &info) < 0) {
+        if (errno == ENOENT) {
+            warnx("checkpoint directory '%s' does not exist; about to create it.", dname);
+            if (mkdir(dname, 0755) < 0) {
+                err(1, "directory '%s' does not exist and creating it failed", dname);
+            }
+        } else
+            err(1, "stat on '%s' failed", dname);
+    }
+    return true;
+}
+

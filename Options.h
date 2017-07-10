@@ -27,6 +27,7 @@ class Options {
     //void initialize_map(void);
     //void processopts(int argc, char **argv);
     bool fileexists(std::string fname);
+    bool checkmakedir(std::string checkpointdir);
 
     public:
         Options(int argc, char **argv);
@@ -42,6 +43,7 @@ class Options {
 	unsigned int get_restart() const { return restart; };
 
         void checkpoint(void);
+	void cleancheckpointdir(void);
 };
 
 #endif // OPTIONS_H

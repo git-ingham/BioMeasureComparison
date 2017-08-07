@@ -7,8 +7,9 @@
 void
 kmermetric::calculate_set(const std::string& seq)
 {
-    if (kmers.count(seq) == 0) // Probably true
+    if (kmers.count(seq) == 0) { // Probably true
         kmers.emplace(seq, new kmer_t);
+    }
     for (unsigned int i=0; i<seq.length()-n; ++i) {
 	std::string kmer = seq.substr(i, n);
 	if (kmers.at(seq)->count(kmer) > 0) 
@@ -16,6 +17,8 @@ kmermetric::calculate_set(const std::string& seq)
 	else 
 	    kmers.at(seq)->emplace(kmer, 1);
     }
+    if (algorithm == cosine)
+	sums.emplace(seq, calculate_sum(seq));
 }
 
 long double
@@ -28,10 +31,6 @@ kmermetric::compare(const FastaRecord& a, const FastaRecord& b) const
     if (bseq.length() == 0)
         errx(1, "kmermetric::compare: bseq is 0-length");
 
-    //std::cerr << aseq << std::endl;
-    //std::cerr << bseq << std::endl;
-    //std::cerr << kmers.size() << std::endl;
-
     // sanity check
     if (kmers.count(aseq) == 0) {
 	std::cerr << "kmermetric::compare aseq not pre-calculated!" << std::endl;
@@ -42,12 +41,6 @@ kmermetric::compare(const FastaRecord& a, const FastaRecord& b) const
 	exit(1);
     }
 
-//    static bool printed = false;
-//
-//    if (!printed) {
-//	std::cerr << "about to choose; alg is " << atostring(algorithm) << std::endl;
-//	printed = true;
-//    }
     if (algorithm == cosine)
         return cosinecompare(aseq, bseq);
     if (algorithm == euclidean)
@@ -99,6 +92,22 @@ kmermetric::euclideancompare(const std::string& aseq, const std::string& bseq) c
     return sqrt(dist);
 }
 
+long double
+kmermetric::calculate_sum(const std::string& seq)
+{
+    kmer_t::const_iterator end;
+    unsigned int count;
+    long double sum = 0.0;
+
+    end = kmers.at(seq)->end();
+    for (kmer_t::const_iterator g = kmers.at(seq)->begin(); g!=end; ++g) {
+	std::string kmer = g->first;
+	count = kmers.at(seq)->at(kmer);
+	sum += count*count;
+    }
+    return sqrt(sum);
+}
+
 /*
  * cosine distance based on frequency counts
  * https://en.wikipedia.org/wiki/Cosine_similarity
@@ -107,35 +116,19 @@ long double
 kmermetric::cosinecompare(const std::string& aseq, const std::string& bseq) const
 {
     long double dotproduct = 0.0;
-    long double asum = 0;
-    long double bsum = 0;
-    unsigned int acount, bcount;
     kmer_t::const_iterator end;
 
-    //### should cache the asum and bsum.
-
-    // all we care about are those kmers in common; others have a 0 product and
-    // contribute nothing to the final result.
+    // for the dot product, all we care about are those kmers in common;
+    // others have a 0 product and contribute nothing to the final result.
     end = kmers.at(aseq)->end();
     for (kmer_t::const_iterator g = kmers.at(aseq)->begin(); g!=end; ++g) {
-        std::string kmer = g->first;
-	acount = kmers.at(aseq)->at(kmer);
-	if (kmers.at(bseq)->count(kmer) > 0) {
-	    dotproduct += acount * kmers.at(bseq)->at(kmer);
-	}
-	asum += acount*acount;
-    }
-
-    end = kmers.at(bseq)->end();
-    for (kmer_t::const_iterator g = kmers.at(bseq)->begin(); g!=end; ++g) {
 	std::string kmer = g->first;
-	bcount = kmers.at(bseq)->at(kmer);
-	bsum += bcount * bcount;
+	if (kmers.at(bseq)->count(kmer) > 0) {
+	    dotproduct += kmers.at(aseq)->at(kmer) * kmers.at(bseq)->at(kmer);
+	}
     }
-    //std::cerr << " asum: " << asum << "; bsum: " << bsum << std::endl;
 
-    long double cosine  = dotproduct / (sqrt(asum) * sqrt(bsum));
-    //std::cerr << "cosine: " << cosine << std::endl;
+    long double cosine  = dotproduct / (sums.at(aseq) * sums.at(bseq));
     if (cosine < -1.0) {
 	//std::cerr << "Warning: cosine " << cosine << " is < -1.0." << std::endl;
         cosine = -1.0;
@@ -146,7 +139,6 @@ kmermetric::cosinecompare(const std::string& aseq, const std::string& bseq) cons
     }
 
     long double result = acosl(cosine)/halfpi;
-    //std::cerr << "result: " << result << std::endl;
     if (result <= 2.09629e-10)
         return 0.0;
     else

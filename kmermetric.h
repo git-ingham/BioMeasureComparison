@@ -12,6 +12,9 @@ typedef std::map<std::string, unsigned int> kmer_t;
                // sequence    kmers
 typedef std::map<std::string, kmer_t*> kmers_t;
 
+              // sequence     sum of kmer count squares for cosine compare
+typedef std::map<std::string, long double> kmersum_t;
+
 enum variants {euclidean, cosine};
 
 class kmermetric : public metric {
@@ -19,13 +22,16 @@ class kmermetric : public metric {
     unsigned int n = default_n;
     const long double halfpi = 2.0 * atanl(1.0);
     kmers_t kmers;
+    kmersum_t sums; // for caching cosine calculated data
+
     //variants algorithm = euclidean;
     variants algorithm = cosine;
 
     void calculate_set(const std::string& seq);
+    long double calculate_sum(const std::string& seq);
 
     long double euclideancompare(const std::string& aseq, const std::string& bseq) const;
-    long double cosinecompare(const std::string& aseq, const std::string& bseq) const;
+    long double cosinecompare   (const std::string& aseq, const std::string& bseq) const;
 
     public:
 	void init(void) { n = default_n; };

@@ -1,4 +1,5 @@
-CXX=g++
+#CXX=g++
+CXX=clang++ -std=c++11
 INC=-Iedit_distance/include 
 #CXXFLAGS=-Wall -pg -g $(INC)
 CXXFLAGS=-Wall -O3 -g $(INC)

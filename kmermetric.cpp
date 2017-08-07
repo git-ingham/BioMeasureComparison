@@ -109,22 +109,33 @@ kmermetric::cosinecompare(const std::string& aseq, const std::string& bseq) cons
     long double dotproduct = 0.0;
     long double asum = 0;
     long double bsum = 0;
+    unsigned int acount, bcount;
+    kmer_t::const_iterator end;
+
+    //### should cache the asum and bsum.
 
     // all we care about are those kmers in common; others have a 0 product and
     // contribute nothing to the final result.
-    for (kmer_t::const_iterator g = kmers.at(aseq)->begin(); g!=kmers.at(aseq)->end(); ++g) {
+    end = kmers.at(aseq)->end();
+    for (kmer_t::const_iterator g = kmers.at(aseq)->begin(); g!=end; ++g) {
         std::string kmer = g->first;
-	if (kmers.at(bseq)->count(kmer) > 0)
-	    dotproduct += kmers.at(aseq)->at(kmer) * kmers.at(bseq)->at(kmer);
-	asum += kmers.at(aseq)->at(kmer)*kmers.at(aseq)->at(kmer);
+	acount = kmers.at(aseq)->at(kmer);
+	if (kmers.at(bseq)->count(kmer) > 0) {
+	    dotproduct += acount * kmers.at(bseq)->at(kmer);
+	}
+	asum += acount*acount;
     }
 
-    for (kmer_t::const_iterator g = kmers.at(bseq)->begin(); g!=kmers.at(bseq)->end(); ++g) {
+    end = kmers.at(bseq)->end();
+    for (kmer_t::const_iterator g = kmers.at(bseq)->begin(); g!=end; ++g) {
 	std::string kmer = g->first;
-	bsum += kmers.at(bseq)->at(kmer) * kmers.at(bseq)->at(kmer);
+	bcount = kmers.at(bseq)->at(kmer);
+	bsum += bcount * bcount;
     }
+    //std::cerr << " asum: " << asum << "; bsum: " << bsum << std::endl;
 
     long double cosine  = dotproduct / (sqrt(asum) * sqrt(bsum));
+    //std::cerr << "cosine: " << cosine << std::endl;
     if (cosine < -1.0) {
 	//std::cerr << "Warning: cosine " << cosine << " is < -1.0." << std::endl;
         cosine = -1.0;
@@ -133,7 +144,9 @@ kmermetric::cosinecompare(const std::string& aseq, const std::string& bseq) cons
 	//std::cerr << "Warning: cosine " << cosine << " is > 1.0." << std::endl;
         cosine = 1.0;
     }
+
     long double result = acosl(cosine)/halfpi;
+    //std::cerr << "result: " << result << std::endl;
     if (result <= 2.09629e-10)
         return 0.0;
     else

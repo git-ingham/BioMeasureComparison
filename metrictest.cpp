@@ -16,6 +16,7 @@
 #include "createmetric.h"
 #include "distancematrix.h"
 
+#define SINGLETHREAD // single threaded for performance analysis
 
 void
 checksanity(const distancematrix& d)
@@ -72,17 +73,11 @@ worker(const metric *m, distancematrix *distance, const fastavec_t &sequences,
 {
     // each worker does rows where row % nthreads == workernum
     // no barrier needed because each worker writes to different locations.
-    try {
-	for (unsigned int i=workernum; i<sequences.size(); i = i + nthreads) {
-	    for (unsigned int j=i; j<sequences.size(); ++j) {
-		distance->set(i, j, m->compare(sequences[i], sequences[j]));
-		checkpoint(i, workernum, checkpointdir);
-	    }
+    for (unsigned int i=workernum; i<sequences.size(); i = i + nthreads) {
+	for (unsigned int j=i; j<sequences.size(); ++j) {
+	    distance->set(i, j, m->compare(sequences[i], sequences[j]));
+	    checkpoint(i, workernum, checkpointdir);
 	}
-    }
-    catch (std::exception& e) {
-	std::cerr << "Caught an exception in worker " << workernum << " "
-		  << e.what() << std::endl;
     }
 }
 
@@ -108,6 +103,9 @@ main (int argc, char **argv)
 
     distancematrix distance(sequences.size(), opts.get("distmatfname"));
 
+#ifdef SINGLETHREAD
+    worker(m, &distance, sequences, nthreads, 0, opts.get("checkpointdir"));
+#else
     for (unsigned int i=0; i < nthreads; ++i) {
         threads[i] = std::thread(worker, m, &distance, sequences, nthreads, i,
 	                         opts.get("checkpointdir"));
@@ -115,6 +113,7 @@ main (int argc, char **argv)
     for (unsigned int i=0; i < nthreads; ++i) {
         threads[i].join();
     }
+#endif
 
     if (getrusage(RUSAGE_SELF, &endusage) < 0) 
         err(1, "getrusage end failed");

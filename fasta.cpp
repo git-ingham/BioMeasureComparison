@@ -3,6 +3,7 @@
 #include <cstring>
 #include <errno.h>
 #include <err.h>
+#include <stdlib.h>
 
 // Read one record from a FASTA file.
 // Assumption: we are positioned ready to read the first character of
@@ -53,7 +54,7 @@ readsinglefasta(std::ifstream& is)
 fastavec_t readfastafile(const std::string& fastafile)
 {
     std::ifstream f;
-    f.open(fastafile);
+    f.open(fastafile.c_str());
     if (!f.is_open()) {
         std::cerr << "cannot open '" << fastafile << "' for reading: ";
 	std::cerr << strerror(errno) << std::endl;

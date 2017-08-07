@@ -78,7 +78,7 @@ distancematrix::sub(const unsigned int i, const unsigned int j) const
 
     unsigned int k;
     //k = i + j*(j-i)/2;
-    k = j*(j+1)/2 + i;
+    k = i*(i+1)/2 + j;
     if (k > vecsize) errx(1, "i %u j %u k %u out of range (vecsize: %u); this should not happen", i, j, k, vecsize);
     return k;
 }

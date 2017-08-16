@@ -25,7 +25,7 @@ Options::Options(int argc, char **argv)
         ("distmatfname", po::value<std::string>(), "distance matrix file name; required")
         ("ncores", po::value<std::string>(),
 	 "number of CPU cores to use; optional; default: 1")
-        ("checkpoint", po::value<std::string>(), "checkpoint directory; required only if restarting")
+        ("checkpoint", po::value<std::string>(), "checkpoint directory; default exists")
         ("restart",
 	 "restart from checkpoint; optional; default: not restarting from checkpoint")
     ;
@@ -38,24 +38,29 @@ Options::Options(int argc, char **argv)
 	exit(1);
     }
 
+    // no else because optional
+    // First, because mandatory options are not madatory in restart
+    if (vm.count("restart"))
+        set("restart", "true");
+
     if (vm.count("checkpoint"))
        set("checkpoint", vm["checkpoint"].as<std::string>());
     // no else because optional
     if (vm.count("distmatfname"))
        set("distmatfname", vm["distmatfname"].as<std::string>());
-    else {
+    else if (!restart) {
 	std::cerr << "Missing required option '--distmatfname'" << std::endl;
 	error = true;
     }
     if (vm.count("fasta"))
        set("fasta", vm["fasta"].as<std::string>());
-    else {
+    else if (!restart) {
 	std::cerr << "Missing required option '--fasta'" << std::endl;
 	error = true;
     }
     if (vm.count("metric"))
        set("metric", vm["metric"].as<std::string>());
-    else {
+    else if (!restart) {
 	std::cerr << "Missing required option '--metric'" << std::endl;
 	error = true;
     }
@@ -67,14 +72,14 @@ Options::Options(int argc, char **argv)
     // no else because optional
     if (vm.count("ncores"))
        set("ncores", vm["ncores"].as<std::string>());
-    // no else because optional
-    if (vm.count("restart"))
-        set("restart", "true");
 
     if (error) {
          std::cerr << desc << std::endl;
 	 exit(1);
     }
+
+    if (restart) 
+        restore();
 };
 
 std::string
@@ -173,14 +178,26 @@ Options::fileexists(std::string fname)
 	else 
 	    err(1, "Options::fileexists stat failed");
     }
-    return true;
+    
+    // verify it is a real file.
+    if (S_ISREG(info.st_mode)) 
+        return true;
+    
+    errx(1, "'%s' is not a real file", fname.c_str());
 }
 
 void
 Options::cleancheckpointdir(void)
 {
-    for (directory_entry& x : directory_iterator(p))
-	cout << x.path() << '\n';
+    if (checkdir(checkpointdir)) {
+	for (fs::directory_entry& x : fs::directory_iterator(checkpointdir)) {
+	    std::cout << x.path() << '\n';
+	    remove(x.path());
+	}
+    } else {
+        err(1, "Checkpoint dir '%s' does not exist and I will not create it.",
+	    checkpointdir.c_str());
+    }
 }
 
 void
@@ -192,13 +209,15 @@ Options::checkpoint(void)
     std::string fname = checkpointdir + "/" + checkpointfname;
     std::ofstream cpf;
     cpf.open(fname);
+    if (cpf.fail())
+        err(1, "opening '%s' for writing failed", fname.c_str());
 
     cpf << "ncores" << std::endl << ncores << std::endl;
-    cpf << "distmatfname " << std::endl << distmatfname  << std::endl;
-    cpf << "fastafile " << std::endl << fastafile  << std::endl;
-    cpf << "metricname " << std::endl << metricname  << std::endl;
-    cpf << "submetricname " << std::endl << submetricname  << std::endl;
-    cpf << "metricopts " << std::endl << metricopts  << std::endl;
+    cpf << "distmatfname" << std::endl << distmatfname  << std::endl;
+    cpf << "fastafile" << std::endl << fastafile  << std::endl;
+    cpf << "metricname" << std::endl << metricname  << std::endl;
+    cpf << "submetricname" << std::endl << submetricname  << std::endl;
+    cpf << "metricopts" << std::endl << metricopts  << std::endl;
 
     cpf.close();
 }
@@ -225,3 +244,90 @@ Options::checkmakedir(std::string checkpointdir)
     return true;
 }
 
+//### Should throw an exception for different failures
+bool
+Options::checkdir(std::string checkpointdir)
+{
+    struct stat info;
+    const char *dname = checkpointdir.c_str();
+
+    if (stat(dname, &info) < 0) {
+        if (errno == ENOENT) {
+            return false;
+        } else
+            err(1, "stat on '%s' failed", dname);
+    }
+    if (S_ISDIR(info.st_mode))
+	return true;
+    else 
+	err(1, "directory '%s' is not a directory.", dname);
+}
+
+void
+Options::restore(void)
+{
+    // Verify checkpoint dir exists
+    if (!checkdir(checkpointdir))
+        errx(1, "Checkpoint dir '%s' does not exist.", checkpointdir.c_str());
+
+    // Open options file
+    std::string fname = checkpointdir + "/" + checkpointfname;
+    std::ifstream cpf;
+    cpf.open(fname);
+    if (cpf.fail())
+        err(1, "opening '%s' for reading failed", fname.c_str());
+
+    // Parse file to restore options.  Annoyingly silly and should be handled by
+    // some kind of structure that improved generality.  Or, even better, a
+    // library function for save and restore.
+    set("ncores", restoreoption("ncores", cpf));
+    set("distmatfname", restoreoption("distmatfname", cpf));
+    set("fastafile", restoreoption("fastafile", cpf));
+    set("metricname", restoreoption("metricname", cpf));
+    set("submetricname", restoreoption("submetricname", cpf));
+    set("metricopts", restoreoption("metricopts", cpf));
+
+    // verify that this is the end of file
+    if (!cpf.eof()) {
+        std::cerr << "Warning, extra, ignored info in '" << fname << "'" << std::endl;
+	std::string line;
+        if (std::getline(cpf, line))
+	    std::cerr << "Warning, first ignored line is'" << line << "'" << std::endl;
+	else
+	    std::cerr << "Warning, bug in code; no data to get" << std::endl;
+    }
+
+    cpf.close();
+
+    std::cout << "Restoring options from checkpoint file" << std::endl << fname << std::endl;
+    std::cout << "ncores" << std::endl << ncores << std::endl;
+    std::cout << "distmatfname " << std::endl << distmatfname << std::endl;
+    std::cout << "fastafile " << std::endl << fastafile << std::endl;
+    std::cout << "metricname " << std::endl << metricname << std::endl;
+    std::cout << "submetricname " << std::endl << submetricname << std::endl;
+    std::cout << "metricopts " << std::endl << metricopts << std::endl;
+}
+
+// Check label and return value.
+std::string
+Options::restoreoption(const std::string label, std::ifstream& cpf)
+{
+    std::string value, inlabel;
+
+    if (!std::getline(cpf, inlabel)) 
+        errx(1, "Missing '%s' label", label.c_str());
+    chomp(inlabel);
+    if (inlabel.compare(label) != 0) 
+        errx(1, "Expecting '%s' label but found '%s'", label.c_str(), inlabel.c_str());
+    if (!std::getline(cpf, value)) 
+        errx(1, "Missing '%s' value", label.c_str());
+    chomp(value);
+    return value;
+}
+
+// Remove trailing line ending characters
+void
+Options::chomp(std::string& line)
+{
+    line.erase(line.find_last_not_of("\r\n")+1);
+}

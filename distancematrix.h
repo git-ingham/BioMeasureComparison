@@ -10,6 +10,7 @@
 
 class distancematrix {
     private: 
+	bool valid = false;
 	unsigned int size;
 	int fd;
 	long double *vec;
@@ -23,6 +24,9 @@ class distancematrix {
     public:
 	distancematrix(const unsigned int sizep, const std::string filenamep);
 	distancematrix(const std::string filenamep);
+	distancematrix(void);
+	void init(const unsigned int sizep, const std::string filenamep);
+	void init(const std::string filenamep);
 	~distancematrix();
 	long double get(const unsigned int, const unsigned int) const;
 	void set(const unsigned int, const unsigned int, const long double);

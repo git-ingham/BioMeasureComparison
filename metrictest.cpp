@@ -8,6 +8,7 @@
 #include <sys/resource.h>
 #include <err.h>
 #include <exception>
+#include <signal.h>
 
 #include "fasta.h"
 #include "metric.h"
@@ -16,7 +17,7 @@
 #include "createmetric.h"
 #include "distancematrix.h"
 
-#define SINGLETHREAD // single threaded for performance analysis
+//#define SINGLETHREAD // single threaded for performance analysis
 
 void
 checksanity(const distancematrix& d)
@@ -55,6 +56,15 @@ checkpoint(unsigned int i, unsigned int workernum, std::string checkpointdir)
     // assumes that dir exists; options checkpoint occurs before here
     // Checking will require additional locking and slow the system.
     
+    // Not sure if this is the correct way to do this with C++ threads;
+    // should work with posix threads.
+    sigset_t set, oldset;
+    sigaddset(&set, SIGINT);
+    sigaddset(&set, SIGTERM);
+    sigaddset(&set, SIGHUP);
+    if (sigprocmask(SIG_BLOCK, &set, &oldset) < 0)
+        err(1, "sigprocmask to block signals failed");
+
     checkpoint_mutex.lock();
 
     std::string fname = checkpointdir + "/" + fnamebase + std::to_string(workernum) + ".checkpoint";
@@ -65,6 +75,8 @@ checkpoint(unsigned int i, unsigned int workernum, std::string checkpointdir)
     cpf.close();
 
     checkpoint_mutex.unlock();
+    if (sigprocmask(SIG_SETMASK, &oldset, NULL) < 0)
+        err(1, "sigprocmask to unblock signals failed");
 }
 
 void
@@ -88,20 +100,30 @@ main (int argc, char **argv)
     unsigned int nthreads;
 
     Options opts(argc, argv);
-    opts.cleancheckpointdir();
-    opts.checkpoint();
+    if (opts.get("restart").compare("false") == 0) {
+	opts.cleancheckpointdir();
+	opts.checkpoint();
+    }
 
     nthreads = opts.get_ncores();
     std::thread threads[nthreads];
 
+    //### Would it add anything to checkpoint the fasta data structure?
     fastavec_t sequences = readfastafile(opts.get("fasta"));
 
+    //### Would it add anything to checkpoint the metric data structure?
     metric *m = createmetric(opts, sequences);
+
+    //### assumption: checkpoint fasta, metric, are correct for the matrix
 
     if (getrusage(RUSAGE_SELF, &startusage) < 0) 
         err(1, "getrusage start failed");
 
-    distancematrix distance(sequences.size(), opts.get("distmatfname"));
+    distancematrix distance;
+    if (opts.get("restart").compare("true") == 0)
+	distance.init(opts.get("distmatfname"));
+    else
+	distance.init(sequences.size(), opts.get("distmatfname"));
 
 #ifdef SINGLETHREAD
     worker(m, &distance, sequences, nthreads, 0, opts.get("checkpointdir"));

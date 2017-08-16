@@ -12,7 +12,7 @@
 namespace po = boost::program_options;
 
 class Options {
-    unsigned int ncores = 1;
+    unsigned int ncores = std::thread::hardware_concurrency();
     bool restart = false;
     std::string checkpointdir = "./metrictest.checkpoint";
     std::string checkpointfname = "options.checkpoint";
@@ -28,6 +28,9 @@ class Options {
     //void processopts(int argc, char **argv);
     bool fileexists(std::string fname);
     bool checkmakedir(std::string checkpointdir);
+    bool checkdir(std::string checkpointdir);
+    std::string restoreoption(const std::string label, std::ifstream& cpf);
+    void chomp(std::string& line);
 
     public:
         Options(int argc, char **argv);
@@ -44,6 +47,7 @@ class Options {
 
         void checkpoint(void);
 	void cleancheckpointdir(void);
+	void restore(void);
 };
 
 #endif // OPTIONS_H

@@ -19,8 +19,23 @@
 // 0   0   0   0   a18 a19
 // 0   0   0   0   0   a20
 
-// When a size is provided, we start with an empty matrix.
 distancematrix::distancematrix(const unsigned int sizep, const std::string filename)
+{
+    init(sizep, filename);
+}
+
+distancematrix::distancematrix(const std::string filename)
+{
+    init(filename);
+}
+
+distancematrix::distancematrix()
+{
+}
+
+// When a size is provided, we start with an empty matrix.
+void
+distancematrix::init(const unsigned int sizep, const std::string filename)
 {
     size = sizep;
 
@@ -41,10 +56,13 @@ distancematrix::distancematrix(const unsigned int sizep, const std::string filen
                                allocsize);
 
     if (close(fd) < 0) err(1, "close fd for %s failed", filename.c_str());
+
+    valid = true;
 }
 
 // When a size is not provided, we open an existing matrix
-distancematrix::distancematrix(const std::string filename)
+void
+distancematrix::init(const std::string filename)
 {
     std::cerr << "Create existing matrix from " << filename << std::endl;
 
@@ -55,12 +73,26 @@ distancematrix::distancematrix(const std::string filename)
     if (stat(filename.c_str(), &sb) < 0) err(1, "Cannot stat %s", filename.c_str());
 
     allocsize = sb.st_size;
-    size = sqrt(2*allocsize + 1) / sizeof(long double);
+    std::cerr << "allocsize (file size) " << allocsize << std::endl;
+
+    vecsize = allocsize / sizeof(long double);
+    std::cerr << "vecsize " << vecsize << std::endl;
+
+    size = sqrt(2*vecsize + 1);
+    std::cerr << "size (matrix n of nxn) " << size << std::endl;
+
+    // Sanity check
+    if ((size*size/2 + size) != vecsize)
+        errx(1, "Size does not lead to proper vecsize");
+   if ((size*size/2 + size)*sizeof(long double) != allocsize)
+        errx(1, "Size does not lead to proper allocsize");
 
     vec = (long double *)mmap((caddr_t)0, allocsize, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
     if (vec == MAP_FAILED) err(1, "Cannot map %s to size %lu", filename.c_str(), allocsize);
 
     if (close(fd) < 0) err(1, "close fd for %s failed", filename.c_str());
+
+    valid = true;
 }
 
 distancematrix::~distancematrix() 
@@ -111,24 +143,34 @@ distancematrix::checkij(const unsigned int i, const unsigned int j) const
 long double
 distancematrix::get(const unsigned int i, const unsigned int j) const
 {
-    checkij(i, j);
-    unsigned int k = sub(i, j);
-    //std::cerr << "get: i " << i << "; j " << j << "; k " << k << std::endl;
-    return vec[k];
+    if (valid) {
+	checkij(i, j);
+	unsigned int k = sub(i, j);
+	//std::cerr << "get: i " << i << "; j " << j << "; k " << k << std::endl;
+	return vec[k];
+    } else {
+        warnx("Distance matrix is invalid.");
+	abort();
+    }
 }
 
 void 
 distancematrix::set(const unsigned int i, const unsigned int j, const long double d)
 {
-    checkij(i, j);
-    unsigned int k = sub(i, j);
+    if (valid) {
+	checkij(i, j);
+	unsigned int k = sub(i, j);
 
-//    char *msg;
-//    asprintf(&msg, "set: i %u; j %u; k %u; thread %u\n", i, j, k,
-//             std::this_thread::get_id());
-//    std::cerr << msg;
-//    free(msg);
-    vec[k] = d;
+    //    char *msg;
+    //    asprintf(&msg, "set: i %u; j %u; k %u; thread %u\n", i, j, k,
+    //             std::this_thread::get_id());
+    //    std::cerr << msg;
+    //    free(msg);
+	vec[k] = d;
+    } else {
+        warnx("Distance matrix is invalid.");
+	abort();
+    }
 }
 
 void

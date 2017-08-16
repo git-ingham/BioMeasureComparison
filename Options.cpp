@@ -1,13 +1,7 @@
 #include "Options.h"
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <errno.h>
 #include <err.h>
 #include <unistd.h>
-#include <iostream>
-#include <fstream>
-#include <boost/filesystem.hpp>
-namespace fs = boost::filesystem;
+#include "utils.h"
 
 Options::Options(int argc, char **argv)
 {
@@ -124,23 +118,23 @@ Options::set(const std::string key, const std::string value)
 	distmatfname = value;
 	// ### No error checking here?
     }
-    if (key.compare("fasta") == 0) {
+    if (key.compare("fastafile") == 0) {
 	foundkey = true;
 	fastafile = value;
 	if (!fileexists(fastafile)) 
 	    errx(1, "fastafile '%s' does not exist", fastafile.c_str());
     }
-    if (key.compare("metric") == 0) {
+    if (key.compare("metricname") == 0) {
 	foundkey = true;
 	metricname = value;
 	// ### No error checking here?
     }
-    if (key.compare("submetric") == 0) {
+    if (key.compare("submetricname") == 0) {
 	foundkey = true;
 	submetricname = value;
 	// ### No error checking here?
     }
-    if (key.compare("metricopt") == 0) {
+    if (key.compare("metricopts") == 0) {
 	foundkey = true;
 	metricopts = value;
 	// ### No error checking here?
@@ -168,166 +162,3 @@ Options::set(const std::string key, const std::string value)
         errx(1, "Options::set: No known key '%s'", key.c_str());
 }
 
-bool
-Options::fileexists(std::string fname)
-{
-    struct stat info;
-    if (stat(fname.c_str(), &info) < 0) {
-	if (errno == ENOENT)
-	    return false;
-	else 
-	    err(1, "Options::fileexists stat failed");
-    }
-    
-    // verify it is a real file.
-    if (S_ISREG(info.st_mode)) 
-        return true;
-    
-    errx(1, "'%s' is not a real file", fname.c_str());
-}
-
-void
-Options::cleancheckpointdir(void)
-{
-    if (checkdir(checkpointdir)) {
-	for (fs::directory_entry& x : fs::directory_iterator(checkpointdir)) {
-	    std::cout << x.path() << '\n';
-	    remove(x.path());
-	}
-    } else {
-        err(1, "Checkpoint dir '%s' does not exist and I will not create it.",
-	    checkpointdir.c_str());
-    }
-}
-
-void
-Options::checkpoint(void)
-{
-    checkmakedir(checkpointdir); // exits on failure
-
-    // If we are here, the directory exists.
-    std::string fname = checkpointdir + "/" + checkpointfname;
-    std::ofstream cpf;
-    cpf.open(fname);
-    if (cpf.fail())
-        err(1, "opening '%s' for writing failed", fname.c_str());
-
-    cpf << "ncores" << std::endl << ncores << std::endl;
-    cpf << "distmatfname" << std::endl << distmatfname  << std::endl;
-    cpf << "fastafile" << std::endl << fastafile  << std::endl;
-    cpf << "metricname" << std::endl << metricname  << std::endl;
-    cpf << "submetricname" << std::endl << submetricname  << std::endl;
-    cpf << "metricopts" << std::endl << metricopts  << std::endl;
-
-    cpf.close();
-}
-
-// ### should thrown an exception instead of exiting on failure
-bool
-Options::checkmakedir(std::string checkpointdir)
-{
-    struct stat info;
-    const char *dname = checkpointdir.c_str();
-
-    //std::cerr << "dname: " << dname << std::endl;
-
-    // If dir does not exist, create it if possible
-    if (stat(dname, &info) < 0) {
-        if (errno == ENOENT) {
-            warnx("checkpoint directory '%s' does not exist; about to create it.", dname);
-            if (mkdir(dname, 0755) < 0) {
-                err(1, "directory '%s' does not exist and creating it failed", dname);
-            }
-        } else
-            err(1, "stat on '%s' failed", dname);
-    }
-    return true;
-}
-
-//### Should throw an exception for different failures
-bool
-Options::checkdir(std::string checkpointdir)
-{
-    struct stat info;
-    const char *dname = checkpointdir.c_str();
-
-    if (stat(dname, &info) < 0) {
-        if (errno == ENOENT) {
-            return false;
-        } else
-            err(1, "stat on '%s' failed", dname);
-    }
-    if (S_ISDIR(info.st_mode))
-	return true;
-    else 
-	err(1, "directory '%s' is not a directory.", dname);
-}
-
-void
-Options::restore(void)
-{
-    // Verify checkpoint dir exists
-    if (!checkdir(checkpointdir))
-        errx(1, "Checkpoint dir '%s' does not exist.", checkpointdir.c_str());
-
-    // Open options file
-    std::string fname = checkpointdir + "/" + checkpointfname;
-    std::ifstream cpf;
-    cpf.open(fname);
-    if (cpf.fail())
-        err(1, "opening '%s' for reading failed", fname.c_str());
-
-    // Parse file to restore options.  Annoyingly silly and should be handled by
-    // some kind of structure that improved generality.  Or, even better, a
-    // library function for save and restore.
-    set("ncores", restoreoption("ncores", cpf));
-    set("distmatfname", restoreoption("distmatfname", cpf));
-    set("fastafile", restoreoption("fastafile", cpf));
-    set("metricname", restoreoption("metricname", cpf));
-    set("submetricname", restoreoption("submetricname", cpf));
-    set("metricopts", restoreoption("metricopts", cpf));
-
-    // verify that this is the end of file
-    if (!cpf.eof()) {
-        std::cerr << "Warning, extra, ignored info in '" << fname << "'" << std::endl;
-	std::string line;
-        if (std::getline(cpf, line))
-	    std::cerr << "Warning, first ignored line is'" << line << "'" << std::endl;
-	else
-	    std::cerr << "Warning, bug in code; no data to get" << std::endl;
-    }
-
-    cpf.close();
-
-    std::cout << "Restoring options from checkpoint file" << std::endl << fname << std::endl;
-    std::cout << "ncores" << std::endl << ncores << std::endl;
-    std::cout << "distmatfname " << std::endl << distmatfname << std::endl;
-    std::cout << "fastafile " << std::endl << fastafile << std::endl;
-    std::cout << "metricname " << std::endl << metricname << std::endl;
-    std::cout << "submetricname " << std::endl << submetricname << std::endl;
-    std::cout << "metricopts " << std::endl << metricopts << std::endl;
-}
-
-// Check label and return value.
-std::string
-Options::restoreoption(const std::string label, std::ifstream& cpf)
-{
-    std::string value, inlabel;
-
-    if (!std::getline(cpf, inlabel)) 
-        errx(1, "Missing '%s' label", label.c_str());
-    chomp(inlabel);
-    if (inlabel.compare(label) != 0) 
-        errx(1, "Expecting '%s' label but found '%s'", label.c_str(), inlabel.c_str());
-    if (!std::getline(cpf, value)) 
-        errx(1, "Missing '%s' value", label.c_str());
-    chomp(value);
-    return value;
-}
-
-// Remove trailing line ending characters
-void
-Options::chomp(std::string& line)
-{
-    line.erase(line.find_last_not_of("\r\n")+1);
-}

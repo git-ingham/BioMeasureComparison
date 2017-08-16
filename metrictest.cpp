@@ -8,7 +8,6 @@
 #include <sys/resource.h>
 #include <err.h>
 #include <exception>
-#include <signal.h>
 
 #include "fasta.h"
 #include "metric.h"
@@ -16,6 +15,8 @@
 #include "editmetric.h"
 #include "createmetric.h"
 #include "distancematrix.h"
+#include "utils.h"
+#include "checkpoint.h"
 
 //#define SINGLETHREAD // single threaded for performance analysis
 
@@ -47,49 +48,26 @@ checksanity(const distancematrix& d)
         std::cerr << n << " zero non-self distances" << std::endl;
 }
 
-std::mutex checkpoint_mutex;
-
-void
-checkpoint(unsigned int i, unsigned int workernum, std::string checkpointdir)
-{
-    const std::string fnamebase = "worker";
-    // assumes that dir exists; options checkpoint occurs before here
-    // Checking will require additional locking and slow the system.
-    
-    // Not sure if this is the correct way to do this with C++ threads;
-    // should work with posix threads.
-    sigset_t set, oldset;
-    sigaddset(&set, SIGINT);
-    sigaddset(&set, SIGTERM);
-    sigaddset(&set, SIGHUP);
-    if (sigprocmask(SIG_BLOCK, &set, &oldset) < 0)
-        err(1, "sigprocmask to block signals failed");
-
-    checkpoint_mutex.lock();
-
-    std::string fname = checkpointdir + "/" + fnamebase + std::to_string(workernum) + ".checkpoint";
-    std::ofstream cpf;
-    cpf.open(fname);
-    cpf << "workernum" << std::endl << workernum << std::endl;
-    cpf << "i" << std::endl << i << std::endl;
-    cpf.close();
-
-    checkpoint_mutex.unlock();
-    if (sigprocmask(SIG_SETMASK, &oldset, NULL) < 0)
-        err(1, "sigprocmask to unblock signals failed");
-}
-
 void
 worker(const metric *m, distancematrix *distance, const fastavec_t &sequences,
-       unsigned int nthreads, unsigned int workernum, std::string checkpointdir)
+       unsigned int nthreads, unsigned int workernum, std::string checkpointdir,
+       bool restart)
 {
+    unsigned int startrow;
+
+    if (restart) {
+        startrow = workerrestore(workernum, checkpointdir) + nthreads;
+    } else {
+        startrow = workernum;
+    }
+
     // each worker does rows where row % nthreads == workernum
     // no barrier needed because each worker writes to different locations.
-    for (unsigned int i=workernum; i<sequences.size(); i = i + nthreads) {
+    for (unsigned int i=startrow; i<sequences.size(); i = i + nthreads) {
 	for (unsigned int j=i; j<sequences.size(); ++j) {
 	    distance->set(i, j, m->compare(sequences[i], sequences[j]));
-	    checkpoint(i, workernum, checkpointdir);
 	}
+	workercheckpoint(i, workernum, checkpointdir);
     }
 }
 
@@ -100,7 +78,9 @@ main (int argc, char **argv)
     unsigned int nthreads;
 
     Options opts(argc, argv);
-    if (opts.get("restart").compare("false") == 0) {
+    bool restart = opts.get("restart").compare("true") == 0;
+
+    if (!restart) {
 	opts.cleancheckpointdir();
 	opts.checkpoint();
     }
@@ -114,7 +94,8 @@ main (int argc, char **argv)
     //### Would it add anything to checkpoint the metric data structure?
     metric *m = createmetric(opts, sequences);
 
-    //### assumption: checkpoint fasta, metric, are correct for the matrix
+    //### assumption: if we are restarting, the checkpoint fasta, metric,
+    // are correct for the matrix
 
     if (getrusage(RUSAGE_SELF, &startusage) < 0) 
         err(1, "getrusage start failed");
@@ -126,11 +107,11 @@ main (int argc, char **argv)
 	distance.init(sequences.size(), opts.get("distmatfname"));
 
 #ifdef SINGLETHREAD
-    worker(m, &distance, sequences, nthreads, 0, opts.get("checkpointdir"));
+    worker(m, &distance, sequences, nthreads, 0, opts.get("checkpointdir"), restart);
 #else
     for (unsigned int i=0; i < nthreads; ++i) {
         threads[i] = std::thread(worker, m, &distance, sequences, nthreads, i,
-	                         opts.get("checkpointdir"));
+	                         opts.get("checkpointdir"), restart);
     }
     for (unsigned int i=0; i < nthreads; ++i) {
         threads[i].join();

@@ -7,20 +7,19 @@ LDFLAGS=-lm -pthread -lboost_program_options -lboost_filesystem -lboost_system
 
 
 OBJS = fasta.o Options.o metric.o editmetric.o kmermetric.o createmetric.o\
-	metrictest.o distancematrix.o
+	metrictest.o distancematrix.o utils.o checkpoint.o
 metrictest: $(OBJS)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $(OBJS) 
 
-Options.o: Options.cpp Options.h
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
-
+utils.o: utils.cpp utils.h
+checkpoint.o: checkpoint.cpp checkpoint.h
+Options.o: Options.cpp Options.h utils.h checkpoint.h
 kmermetric.o: kmermetric.cpp kmermetric.h metric.h
-	$(CXX) $(CXXFLAGS) -c -o $@ kmermetric.cpp
+createmetric.o: createmetric.cpp createmetric.h kmermetric.h editmetric.h metric.h
+metrictest.o: metrictest.cpp utils.h checkpoint.h fasta.h Options.h editmetric.h distancematrix.h 
 
 editmetric.o: editmetric.cpp editmetric.h metric.h
 	$(CXX) $(CXXFLAGS) -c -Wno-sign-compare -o $@ editmetric.cpp
-
-createmetric.o: createmetric.cpp createmetric.h kmermetric.h editmetric.h metric.h
 
 testdistance: testdistance.o distancematrix.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ testdistance.o distancematrix.o

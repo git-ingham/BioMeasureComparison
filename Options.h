@@ -8,8 +8,22 @@
 #include <thread>
 #include <err.h>
 #include <stdlib.h>
+#include "checkpoint.h"
+#include "utils.h"
+
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
+
+// All options are stored as strings.  The only problem this causes is for
+// ncores and restart.  Consistency is worth the minor problem.
+
+struct Option {
+    std::string name;
+    std::string description;
+    bool mandatory; // means the option must have a value.
+    std::string value;
+    bool (*checksanity)(std::string);
+};
 
 class Options {
     unsigned int ncores = std::thread::hardware_concurrency();
@@ -26,11 +40,6 @@ class Options {
     //void print_usage(void);
     //void initialize_map(void);
     //void processopts(int argc, char **argv);
-    bool fileexists(std::string fname);
-    bool checkmakedir(std::string checkpointdir);
-    bool checkdir(std::string checkpointdir);
-    std::string restoreoption(const std::string label, std::ifstream& cpf);
-    void chomp(std::string& line);
 
     public:
         Options(int argc, char **argv);

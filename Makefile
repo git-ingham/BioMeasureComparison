@@ -1,8 +1,8 @@
 #CXX=g++
 CXX=clang++ -std=c++11
 INC=-Iedit_distance/include 
-#CXXFLAGS=-Wall -pg -g $(INC)
-CXXFLAGS=-Wall -O3 -g $(INC)
+CXXFLAGS=-Wall -g $(INC)
+#CXXFLAGS=-Wall -O3 -g $(INC)
 LDFLAGS=-lm -pthread -lboost_program_options -lboost_filesystem -lboost_system
 
 
@@ -12,7 +12,7 @@ metrictest: $(OBJS)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $(OBJS) 
 
 utils.o: utils.cpp utils.h
-checkpoint.o: checkpoint.cpp checkpoint.h
+checkpoint.o: checkpoint.cpp checkpoint.h Options.h
 Options.o: Options.cpp Options.h utils.h checkpoint.h
 kmermetric.o: kmermetric.cpp kmermetric.h metric.h
 createmetric.o: createmetric.cpp createmetric.h kmermetric.h editmetric.h metric.h

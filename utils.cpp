@@ -8,7 +8,7 @@
 
 //### Should throw an exception for different failures
 bool
-checkdir(std::string dir)
+direxists(std::string dir)
 {
     struct stat info;
     const char *dname = dir.c_str();

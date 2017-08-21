@@ -9,8 +9,10 @@
 #include "kmermetric.h"
 #include "Options.h"
 
-metric* 
-createmetric(const Options opts, const fastavec_t& seqs);
+metric* createmetric(const Options opts, const fastavec_t& seqs);
 //createmetric(const std::string& name, const std::string& subname, const std::string& opts, const fastavec_t& seqs);
+
+std::string validatemetric(std::string name);
+
 
 #endif // CREATEMETRIC_H

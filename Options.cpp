@@ -1,164 +1,161 @@
 #include "Options.h"
+
 #include <err.h>
 #include <unistd.h>
+#include <getopt.h>
+#include <string.h>
 #include "utils.h"
+#include "createmetric.h"
+
 
 Options::Options(int argc, char **argv)
 {
+    auto validateboolean = [](const std::string value) {
+	if (value.compare("true") == 0 || value.compare("false") == 0)
+	    return std::string("");
+	return std::string("Boolean value '" + value +
+	                   "' is neither 'true' nor 'false'.");
+    };
+    auto validatefile = [](const std::string value) {
+        if (fileexists(value))
+	    return std::string("");
+	return std::string("File '" + value + "' does not exist.");
+    };
+    auto validatedir = [](const std::string value) {
+        if (direxists(value))
+	    return std::string("");
+	return std::string("Directory '" + value + "' does not exist.");
+    };
+    auto validatecores = [](const std::string value) {
+        unsigned int ncores = stoi(value);
+	if (ncores > 0 && ncores <= std::thread::hardware_concurrency())
+	    return std::string("");
+
+	return std::string("ncores '" + value + "' is greater than system cores (" +
+			   std::to_string(std::thread::hardware_concurrency()) + ").");
+    };
+    auto novalidation = [](const std::string value) {return std::string("");};
+
     bool error = false;
-    
-    po::options_description desc("Allowed options");
-    desc.add_options()
-	("help", "produce help message")
-        ("fasta", po::value<std::string>(), "fasta file containing sequences; required")
-	("metric", po::value<std::string>(), "distance measure to use; required")
-        ("submetric", po::value<std::string>(),
-	 "submetric to use; optional; depends on the distance measure")
-        ("metricopt", po::value<std::string>(),
-	 "options for the distance measure; depends on the measure")
-        ("distmatfname", po::value<std::string>(), "distance matrix file name; required")
-        ("ncores", po::value<std::string>(),
-	 "number of CPU cores to use; optional; default: 1")
-        ("checkpoint", po::value<std::string>(), "checkpoint directory; default exists")
-        ("restart",
-	 "restart from checkpoint; optional; default: not restarting from checkpoint")
-    ;
-    po::variables_map vm;
-    po::store(po::parse_command_line(argc, argv, desc), vm);
-    po::notify(vm);
 
-    if (vm.count("help")) {
-        std::cout << desc << std::endl;
-	exit(1);
+    // cannot do this initialization in Options.h class defn
+    // even if we are not using lambdas but declared functions
+    option_defs[findoption("restart")].checksanity = validateboolean;
+    option_defs[findoption("fasta")].checksanity = validatefile;
+    option_defs[findoption("measure")].checksanity = validatemetric;
+    option_defs[findoption("submeasure")].checksanity = novalidation;
+    option_defs[findoption("measureopt")].checksanity = novalidation;
+    option_defs[findoption("distmatfname")].checksanity = validatefile;
+    option_defs[findoption("ncores")].checksanity = validatecores;
+    option_defs[findoption("checkpointdir")].checksanity = validatedir;
+
+    // Default values
+    set("checkpointdir", "./metrictest.checkpoint");
+    set("restart", "false");
+    set("ncores", std::to_string(std::thread::hardware_concurrency()));
+
+    option long_opts[nopts];
+    std::string short_opts("");
+    for (unsigned int i=0; i<nopts; ++i) {
+        long_opts[i].name = strdup(option_defs[i].name.c_str());
+	long_opts[i].has_arg = option_defs[i].has_argument ? 1 : 0;
+	long_opts[i].flag = NULL;
+	long_opts[i].val = option_defs[i].shortflag;
+
+        short_opts.append(std::string(1, option_defs[i].shortflag));
+	if (option_defs[i].has_argument)
+	    short_opts.append(":");
     }
 
-    // no else because optional
-    // First, because mandatory options are not madatory in restart
-    if (vm.count("restart"))
-        set("restart", "true");
+    while (true) {
+        int opt = getopt_long(argc, argv, short_opts.c_str(), long_opts, nullptr);
 
-    if (vm.count("checkpoint"))
-       set("checkpoint", vm["checkpoint"].as<std::string>());
-    // no else because optional
-    if (vm.count("distmatfname"))
-       set("distmatfname", vm["distmatfname"].as<std::string>());
-    else if (!restart) {
-	std::cerr << "Missing required option '--distmatfname'" << std::endl;
-	error = true;
+	if (opt == -1) break;
+	
+	bool found = false;
+	for (unsigned int i=0; i<nopts; ++i) {
+	    if (opt == option_defs[i].shortflag) {
+	        found = true;
+
+		if (option_defs[i].has_argument) {
+		    //### might want to hold off overwriting this?
+		    option_defs[i].value = std::string(optarg);
+		} else { //### is this the only valid way of dealing with no-arg opts?
+		    option_defs[i].value = "true";
+		}
+
+		std::string err = (option_defs[i].checksanity)(option_defs[i].value);
+		if (err.length() > 0) {
+		    std::cerr << "Error in " << option_defs[i].name << ": ";
+		    std::cerr << err << std::endl;
+		    error = true;
+		}
+	    }
+	}
+	if (!found) {
+	    std::cerr << "Unknown option: '" << opt << "'" << std::endl;
+	    error = true;
+	}
     }
-    if (vm.count("fasta"))
-       set("fasta", vm["fasta"].as<std::string>());
-    else if (!restart) {
-	std::cerr << "Missing required option '--fasta'" << std::endl;
-	error = true;
+
+    if (get_restart()) 
+        restore();
+
+    /* verify all mandatory options are set. */
+    for (unsigned int i=0; i<nopts; ++i) {
+        if (option_defs[i].mandatory && !get_restart() && option_defs[i].value.length() == 0) {
+	    std::cerr << "Missing mandatory option '" << option_defs[i].name
+	              << "' (" << option_defs[i].description << ")"
+		      << std::endl;
+	    error = true;
+	}
     }
-    if (vm.count("metric"))
-       set("metric", vm["metric"].as<std::string>());
-    else if (!restart) {
-	std::cerr << "Missing required option '--metric'" << std::endl;
-	error = true;
-    }
-    if (vm.count("submetric"))
-       set("submetric", vm["submetric"].as<std::string>());
-    // no else because optional
-    if (vm.count("metricopt"))
-       set("metricopt", vm["metricopt"].as<std::string>());
-    // no else because optional
-    if (vm.count("ncores"))
-       set("ncores", vm["ncores"].as<std::string>());
 
     if (error) {
-         std::cerr << desc << std::endl;
-	 exit(1);
+        std::cerr << "One or more errors detected." << std::endl;
+	std::cerr << "Valid options:" << std::endl;
+	for (unsigned int i=0; i<nopts; ++i) {
+	    std::cerr << "    --";
+	    std::cerr << option_defs[i].name << "\t" <<
+	                 option_defs[i].description << std::endl;
+	}
+	exit(1);
     }
+}
 
-    if (restart) 
-        restore();
-};
-
-std::string
-Options::get(const std::string key) const
+unsigned int
+Options::findoption(std::string name) const
 {
-    if (key.compare("checkpointdir") == 0)
-        return checkpointdir;
-    if (key.compare("distmatfname") == 0)
-        return distmatfname;
-    if (key.compare("fasta") == 0)
-        return fastafile;
-    if (key.compare("metric") == 0)
-	return metricname;
-    if (key.compare("submetric") == 0)
-	return submetricname;
-    if (key.compare("metricopt") == 0)
-	return metricopts;
-    if (key.compare("ncores") == 0)
-	return std::to_string(ncores);
-    if (key.compare("restart") == 0)
-        return restart ? "true" : "false";
-
-    std::cerr << "Options::get: No known key '" << key << "'" << std::endl;
+    for (unsigned int i=0; i<nopts; ++i) {
+	if (option_defs[i].name.compare(name) == 0)
+	    return i;
+    }
+    
+    std::cerr << "Options::findoption: No key '" << name << "'" << std::endl;
     abort();
 }
 
 void
 Options::set(const std::string key, const std::string value)
 {
-    bool foundkey = false;
-
     if (value.find('\n') != std::string::npos)
         errx(1, "key '%s' value '%s' contains an embedded newline", key.c_str(), value.c_str());
 
-    if (key.compare("checkpoint") == 0) {
-	foundkey = true;
-	checkpointdir = value;
-	// ### No error checking here?
-    }
-    if (key.compare("distmatfname") == 0) {
-	foundkey = true;
-	distmatfname = value;
-	// ### No error checking here?
-    }
-    if (key.compare("fastafile") == 0) {
-	foundkey = true;
-	fastafile = value;
-	if (!fileexists(fastafile)) 
-	    errx(1, "fastafile '%s' does not exist", fastafile.c_str());
-    }
-    if (key.compare("metricname") == 0) {
-	foundkey = true;
-	metricname = value;
-	// ### No error checking here?
-    }
-    if (key.compare("submetricname") == 0) {
-	foundkey = true;
-	submetricname = value;
-	// ### No error checking here?
-    }
-    if (key.compare("metricopts") == 0) {
-	foundkey = true;
-	metricopts = value;
-	// ### No error checking here?
-    }
-    if (key.compare("ncores") == 0) {
-	foundkey = true;
-	ncores = stoi(value);
-	if (ncores > std::thread::hardware_concurrency())
-	    errx(1, "ncores '%u' is greater than system cores (%u)",
-		 ncores, std::thread::hardware_concurrency());
-    }
-    if (key.compare("restart") == 0) {
-	foundkey = true;
-	if (value.compare("true") == 0 || value.compare("1") == 0) {
-	    restart = true;
-	} else {
-	    if (value.compare("false") == 0 || value.compare("0") == 0)
-		restart = false;
-	    else 
-		errx(1, "Value '%s' for restart is neither 'true' nor 'false'", value.c_str());
-	}
-    }
+    std::string (*validate)(std::string) = option_defs[findoption(key)].checksanity;
+    std::string err = validate(value);
 
-    if (! foundkey) 
-        errx(1, "Options::set: No known key '%s'", key.c_str());
+    if (err.length() == 0) 
+	option_defs[findoption(key)].value = value;
+    else {
+        std::cerr << err << std::endl;
+	abort();
+    }
 }
 
+void
+Options::print(void)
+{
+    for (unsigned int i=0; i<nopts; ++i) {
+        std::cout << option_defs[i].name << ": " << option_defs[i].value << std::endl;
+    }
+}

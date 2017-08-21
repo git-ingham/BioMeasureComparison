@@ -3,9 +3,9 @@
 
 #include <string>
 
-bool checkdir(std::string checkpointdir);
 void chomp(std::string& line);
-bool checkmakedir(std::string checkpointdir);
+bool checkmakedir(std::string dir);
 bool fileexists(std::string fname);
+bool direxists(std::string dir);
 
 #endif // UTILS_H

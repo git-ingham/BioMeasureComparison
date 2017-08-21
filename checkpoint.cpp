@@ -58,36 +58,33 @@ workerrestore(unsigned int workernum, std::string checkpointdir)
 void
 Options::cleancheckpointdir(void)
 {
-    if (checkdir(checkpointdir)) {
-	for (fs::directory_entry& x : fs::directory_iterator(checkpointdir)) {
+    if (direxists(get("checkpointdir"))) {
+	for (fs::directory_entry& x : fs::directory_iterator(get("checkpointdir"))) {
 	    std::cout << x.path() << '\n';
 	    remove(x.path());
 	}
     } else {
         errx(1, "Checkpoint dir '%s' does not exist and I will not create it.",
-	    checkpointdir.c_str());
+	    get("checkpointdir").c_str());
     }
 }
 
 void
 Options::checkpoint(void)
 {
-    checkmakedir(checkpointdir); // exits on failure
+    checkmakedir(get("checkpointdir")); // exits on failure
 
     // If we are here, the directory exists.
-    std::string fname = checkpointdir + "/" + checkpointfname;
+    std::string fname = get("checkpointdir") + "/" + checkpointfname;
     std::ofstream cpf;
     cpf.open(fname);
     if (cpf.fail())
         err(1, "opening '%s' for writing failed", fname.c_str());
 
-    cpf << "ncores" << std::endl << ncores << std::endl;
-    cpf << "distmatfname" << std::endl << distmatfname  << std::endl;
-    cpf << "fastafile" << std::endl << fastafile  << std::endl;
-    cpf << "metricname" << std::endl << metricname  << std::endl;
-    cpf << "submetricname" << std::endl << submetricname  << std::endl;
-    cpf << "metricopts" << std::endl << metricopts  << std::endl;
-
+    for (unsigned int i=0; i<nopts; ++i) {
+	if (option_defs[i].name.compare("restart") != 0)
+	    cpf << option_defs[i].name << std::endl << option_defs[i].value << std::endl;
+    }
     cpf.close();
 }
 
@@ -95,25 +92,22 @@ void
 Options::restore(void)
 {
     // Verify checkpoint dir exists
-    if (!checkdir(checkpointdir))
-        errx(1, "Checkpoint dir '%s' does not exist.", checkpointdir.c_str());
+    if (!direxists(get("checkpointdir")))
+        errx(1, "Checkpoint dir '%s' does not exist.", get("checkpointdir").c_str());
 
     // Open options file
-    std::string fname = checkpointdir + "/" + checkpointfname;
+    std::string fname = get("checkpointdir") + "/" + checkpointfname;
     std::ifstream cpf;
     cpf.open(fname);
     if (cpf.fail())
         err(1, "opening '%s' for reading failed", fname.c_str());
 
-    // Parse file to restore options.  Annoyingly silly and should be handled by
-    // some kind of structure that improved generality.  Or, even better, a
-    // library function for save and restore.
-    set("ncores", restoreoption("ncores", cpf));
-    set("distmatfname", restoreoption("distmatfname", cpf));
-    set("fastafile", restoreoption("fastafile", cpf));
-    set("metricname", restoreoption("metricname", cpf));
-    set("submetricname", restoreoption("submetricname", cpf));
-    set("metricopts", restoreoption("metricopts", cpf));
+    // Parse file to restore options.  
+    // ### should be smart enough to handle re-ordering of lines
+    for (unsigned int i=0; i<nopts; ++i) {
+	if (option_defs[i].name.compare("restart") != 0)
+	    set(option_defs[i].name, restoreoption(option_defs[i].name, cpf));
+    }
 
     // verify that this is the end of file
     if (!cpf.eof()) {
@@ -127,13 +121,8 @@ Options::restore(void)
 
     cpf.close();
 
-    std::cout << "Restoring options from checkpoint file" << std::endl << fname << std::endl;
-    std::cout << "ncores" << std::endl << ncores << std::endl;
-    std::cout << "distmatfname " << std::endl << distmatfname << std::endl;
-    std::cout << "fastafile " << std::endl << fastafile << std::endl;
-    std::cout << "metricname " << std::endl << metricname << std::endl;
-    std::cout << "submetricname " << std::endl << submetricname << std::endl;
-    std::cout << "metricopts " << std::endl << metricopts << std::endl;
+    std::cout << "Restored options from checkpoint file" << std::endl << fname << std::endl;
+    print();
 }
 
 // Check label and return value.

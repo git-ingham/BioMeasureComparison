@@ -60,7 +60,7 @@ Options::cleancheckpointdir(void)
 {
     if (direxists(get("checkpointdir"))) {
 	for (fs::directory_entry& x : fs::directory_iterator(get("checkpointdir"))) {
-	    std::cout << x.path() << '\n';
+	    std::cout << "Removed: " << x.path() << '\n';
 	    remove(x.path());
 	}
     } else {

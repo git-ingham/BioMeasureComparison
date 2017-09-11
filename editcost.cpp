@@ -38,10 +38,10 @@ editcost::init(std::string matrixfname)
 	        errx(1, "Cost matrix from '%s' is asymmetric; i %u j %u",
 		     matrixfname.c_str(), i, j);
 	    if (mutationcost[i][j] < 0)
-		errx(1, "Cost matrix from '%s' value '%d' < 0 at i %u j %u",
+		errx(1, "Cost matrix from '%s' value '%Lf' < 0 at i %u j %u",
 			 matrixfname.c_str(), mutationcost[i][j], i, j);
 	    if (i != j && mutationcost[i][j] == 0)
-		warnx("Cost matrix from '%s' value '%d' == 0 at i %u j %u",
+		warnx("Cost matrix from '%s' value '%Lf' == 0 at i %u j %u",
 			 matrixfname.c_str(), mutationcost[i][j], i, j);
 	    if (mutationcost[i][j] > indelcost)
 	        indelcost = mutationcost[i][j];
@@ -63,9 +63,15 @@ void
 editcost::print() {
     std::cerr << "custom cost matrix:" << std::endl;
     std::cout << std::fixed;
+    for (unsigned int j=0; j<nbases; ++j) {
+	std::cout << std::setw(costwidth) << bases[j];
+	if (j < nbases-1) std::cout << "  ";
+    }
+    std::cout << std::endl;
     for (unsigned int i=0; i<nbases; ++i) {
-	for (unsigned int j=0; i<nbases; ++j) {
-	    std::cout << std::setw(costwidth) << mutationcost[i][j];
+        std::cout << bases[i];
+	for (unsigned int j=0; j<nbases; ++j) {
+	    std::cout << std::setw(costwidth) << std::setprecision(costprec) << mutationcost[i][j];
 	    if (j < nbases-1) std::cout << ", ";
 	}
 	std::cout << std::endl;
@@ -77,9 +83,13 @@ editcost::custom_cost()
 {
     static custom_cost_s c;
 
-    // ### THis is not working
-    c.insertion = &(this->insertion);
-    c.deletion = &editcost::deletion;
-    c.substitution = &editcost::substitution;
+    // ### This is not working
+    // c.insertion = &(this->insertion);
+    // c.deletion = &editcost::deletion;
+    c.insertion = [this] (const char a) -> unsigned int {return this->insertion(a);};
+    c.deletion = [this] (const char a) -> unsigned int {return this->deletion(a);};
+    c.substitution = [this] (const char a, const char b) -> unsigned int {return this->substitution(a,b);};
+
+    std::cerr << "insertion for 'a': " << c.insertion('a') << std::endl;
     return c;
 }

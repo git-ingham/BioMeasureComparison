@@ -2,6 +2,7 @@
 #define EDITCOST_H
 
 #include <string>
+#include <functional>
 #include <err.h>
 
 /*
@@ -22,16 +23,20 @@
 */
 
 typedef struct {
-    unsigned int (*insertion)(const char);
-    unsigned int (*deletion)(const char);
-    unsigned int (*substitution)(const char, const char);
+    //unsigned int (*insertion)(const char);
+    //unsigned int (*deletion)(const char);
+    //unsigned int (*substitution)(const char, const char);
+    std::function<long double (const char a)> insertion;
+    std::function<long double (const char a)> deletion;
+    std::function<long double (const char a, const char b)> substitution;
 } custom_cost_s;
 
 class editcost {
     const static unsigned int nbases = 4; 
     const std::string bases = "acgt";
-    int mutationcost[nbases][nbases];
-    unsigned int costwidth = 0; /* width of widest value, for printing */
+    long double mutationcost[nbases][nbases];
+    unsigned int costwidth = 0; // width of widest value, for printing
+    unsigned int costprec = 2; // precision of cost matrix in printing
 
     /* The cost of inertion and deletion is max(mutationcost); this
     means that a point mutation always has a lower cost than the pair of
@@ -46,9 +51,9 @@ class editcost {
 	~editcost() {};
 	void init(std::string matrixfname);
         void print();
-	unsigned int insertion(const char a) { return indelcost; }
-	unsigned int deletion(const char a) { return indelcost; }
-	unsigned int substitution(const char a, const char b) { 
+	long double insertion(const char a) { return indelcost; }
+	long double deletion(const char a) { return indelcost; }
+	long double substitution(const char a, const char b) { 
 	    return mutationcost[base_index(a)][base_index(b)];
 	};
 	custom_cost_s custom_cost();

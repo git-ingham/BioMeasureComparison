@@ -45,7 +45,7 @@ Options::Options(int argc, char **argv)
     option_defs[findoption("measure")].checksanity = validatemetric;
     option_defs[findoption("submeasure")].checksanity = novalidation;
     option_defs[findoption("measureopt")].checksanity = novalidation;
-    option_defs[findoption("distmatfname")].checksanity = validatefile;
+    option_defs[findoption("distmatfname")].checksanity = novalidation;
     option_defs[findoption("ncores")].checksanity = validatecores;
     option_defs[findoption("checkpointdir")].checksanity = validatedir;
 

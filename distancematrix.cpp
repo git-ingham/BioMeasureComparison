@@ -9,6 +9,7 @@
 #include <thread>
 #include <iomanip>
 #include <unistd.h>
+#include <string.h>
 #include <math.h>
 
 // triangular matrix with diagonal
@@ -56,6 +57,9 @@ distancematrix::init(const unsigned int sizep, const std::string filename)
                                allocsize);
 
     if (close(fd) < 0) err(1, "close fd for %s failed", filename.c_str());
+
+    // Paranoia; verify completely empty
+    memset(vec, 0, vecsize);
 
     valid = true;
 }
@@ -110,7 +114,9 @@ distancematrix::sub(const unsigned int i, const unsigned int j) const
 
     unsigned int k;
     //k = i + j*(j-i)/2;
-    k = i*(i+1)/2 + j;
+    //k = i*(i+1)/2 + j;
+    //k = i + j*(j+i)/2;
+    k = j + size*i - i*(i+1)/2;
     if (k > vecsize) errx(1, "i %u j %u k %u out of range (vecsize: %u); this should not happen", i, j, k, vecsize);
     return k;
 }
@@ -160,6 +166,8 @@ distancematrix::set(const unsigned int i, const unsigned int j, const long doubl
     if (valid) {
 	checkij(i, j);
 	unsigned int k = sub(i, j);
+	if (vec[k] != 0)
+	    errx(1, "matrix[%u][%u] (k: %u) not zero!", i, j, k);
 
     //    char *msg;
     //    asprintf(&msg, "set: i %u; j %u; k %u; thread %u\n", i, j, k,

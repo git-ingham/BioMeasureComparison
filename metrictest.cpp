@@ -86,7 +86,9 @@ main (int argc, char **argv)
     }
 
     nthreads = opts.get_ncores();
+#ifndef SINGLETHREAD
     std::thread threads[nthreads];
+#endif
 
     //### Would it add anything to checkpoint the fasta data structure?
     fastavec_t sequences = readfastafile(opts.get("fasta"));
@@ -134,7 +136,7 @@ main (int argc, char **argv)
 
     checksanity(distance);
 
-    //distance.print();
+    distance.print();
 
     return 0;
 }

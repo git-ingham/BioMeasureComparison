@@ -1,10 +1,17 @@
+# C compiler choice
 #CXX=g++
 CXX=clang++
-INC=-Iedit_distance/include -std=c++11
-CXXFLAGS=-Wall -g $(INC)
-#CXXFLAGS=-Wall -O3 -g $(INC)
+
+INC=-Iedit_distance/include
+CXXFLAGS=-Wall -g $(INC) -std=c++11
+#CXXFLAGS=-Wall -O3 -g $(INC) -std=c++11
+
+# for static linking when the target is a different system missing
+# required libraries.  Need to get supercomputer people to update their
+# OS.
 STATIC=
 #STATIC=-lstatic
+
 LDFLAGS=$(STATIC) -lm -pthread -lboost_program_options -lboost_filesystem -lboost_system
 
 
@@ -34,7 +41,7 @@ MeasureComparison.tgz:
 clean:
 	rm -f $(OBJS) metrictest
 
-# ncbi toolkit; too complex
+# ncbi toolkit; too complex, at least for now
 #INC=-I/home/ingham/bioinformatics/ncbi_cxx--18_0_0/include\
 #    -I/home/ingham/bioinformatics/ncbi_cxx--18_0_0/GCC600-DebugMT64/inc
 #LDFLAGS=-L/home/ingham/bioinformatics/ncbi_cxx--18_0_0/local/ncbi-vdb-2.8.0/lib64/\

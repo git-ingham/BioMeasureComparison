@@ -27,8 +27,8 @@ editmetric.o: editmetric.cpp editmetric.h metric.h
 testdistance: testdistance.o distancematrix.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ testdistance.o distancematrix.o
 
-metriccompare.tgz: 
-	(cd ..; tar czf MetricComparison/$@ MetricComparison/{*.cpp,*.h,Makefile,edit_distance})
+MeasureComparison.tgz: 
+	(cd ..; tar czf MeasureComparison/$@ MeasureComparison/{*.cpp,*.h,Makefile,edit_distance})
 
 .PHONY: clean
 clean:

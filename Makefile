@@ -1,16 +1,19 @@
 #CXX=g++
-CXX=clang++ -std=c++11
-INC=-Iedit_distance/include 
+CXX=clang++
+INC=-Iedit_distance/include -std=c++11
 CXXFLAGS=-Wall -g $(INC)
 #CXXFLAGS=-Wall -O3 -g $(INC)
-LDFLAGS=-lm -pthread -lboost_program_options -lboost_filesystem -lboost_system
+STATIC=
+#STATIC=-lstatic
+LDFLAGS=$(STATIC) -lm -pthread -lboost_program_options -lboost_filesystem -lboost_system
 
 
 OBJS = fasta.o Options.o metric.o editmetric.o kmermetric.o createmetric.o\
-	metrictest.o distancematrix.o utils.o checkpoint.o
+	metrictest.o distancematrix.o utils.o checkpoint.o editcost.o
 metrictest: $(OBJS)
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $(OBJS) 
+	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(LDFLAGS) 
 
+editcost.o: editcost.cpp editcost.h
 utils.o: utils.cpp utils.h
 checkpoint.o: checkpoint.cpp checkpoint.h Options.h
 Options.o: Options.cpp Options.h utils.h checkpoint.h

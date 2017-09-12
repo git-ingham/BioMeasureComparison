@@ -89,7 +89,13 @@ kmermetric::euclideancompare(const std::string& aseq, const std::string& bseq) c
 
     // mapped into [0,1]
     //return dist == 0 ? 0 : 1.0 - 1.0/sqrt(dist);
-    return sqrt(dist);
+
+    // Actual Euclidean distance
+    //return sqrt(dist);
+
+    // Save time and do not do the sqrt, since the relative distances
+    // remain the same, even if the absolute distances are different.
+    return dist;
 }
 
 long double

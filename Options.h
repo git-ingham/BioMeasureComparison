@@ -29,7 +29,7 @@ struct Option {
 };
 
 class Options {
-    const static unsigned int nopts = 8;
+    const static unsigned int nopts = 9;
     struct Option option_defs[nopts] {
 	{ "restart", 'r', 'b', "restart from checkpoint; optional; default: not restarting from checkpoint",
 	  false, false, "", nullptr },
@@ -47,6 +47,8 @@ class Options {
 	  false, true, "", nullptr },
 	{ "checkpointdir", 'c', 's', "checkpoint directory to use; default value exists",
 	  false, true, "", nullptr },
+	{ "printresult", 'p', 's', "print the resulting distance matrix.  Default: false",
+	  false, true, "false", nullptr },
     };
     
     std::string checkpointfname = "options.checkpoint";

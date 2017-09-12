@@ -136,7 +136,8 @@ main (int argc, char **argv)
 
     checksanity(distance);
 
-    distance.print();
+    if (opts.get("printresult").compare("true") == 0)
+	distance.print();
 
     return 0;
 }

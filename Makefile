@@ -17,6 +17,7 @@ STATIC=
 
 LDFLAGS=$(STATIC) -lm -pthread -lboost_program_options -lboost_filesystem -lboost_system
 
+default: metrictest README.txt
 
 #OBJS = fasta.o Options.o metric.o editmetric.o kmermetric.o createmetric.o\
 #	metrictest.o distancematrix.o utils.o checkpoint.o editcost.o
@@ -44,6 +45,9 @@ $(BUILDDIR)/metrictest.o: $(SRCDIR)/metrictest.cpp $(SRCDIR)/utils.h $(SRCDIR)/c
 	$(CXX) -c $(CXXFLAGS) -o $@ $<
 $(BUILDDIR)/editmetric.o: $(SRCDIR)/editmetric.cpp $(SRCDIR)/editmetric.h $(SRCDIR)/metric.h
 	$(CXX) -c $(CXXFLAGS) -Wno-sign-compare -o $@ editmetric.cpp
+
+README.txt: README.md
+	pandoc -f markdown -t plain --wrap=none README.md -o README.txt
 
 testdistance: $(SRCDIR)/testdistance.o $(SRCDIR)/distancematrix.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $*

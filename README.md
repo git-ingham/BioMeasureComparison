@@ -19,6 +19,8 @@ The following are needed:
   * Boost [edit distance](https://github.com/erikerlandson/edit_distance)
   This needs to be installed as a subdirectory that matches `INC` in the
   `Makefile`.  I use the default of `edit_distance`.
+  * If you want to create a text version of this README, you need
+  `pandoc`.
 
 ## Compiling
 
@@ -34,6 +36,9 @@ calculation.  You need to create the directory for the checkpointing
 
 ### Sample data files to try
 
+These data files are *not mine*, but they are in the `data/` directory
+for experimentation and testing.
+
   * [`AF091148`](https://github.com/torognes/vsearch-data/blob/master/AF091148.fsa)
   A small (1408 sequences) FASTA file that works well for testing since
   it tends to be fast.
@@ -46,7 +51,8 @@ calculation.  You need to create the directory for the checkpointing
   utilities exist](https://www.google.com/search?q=convert+FASTA+to+FASTQ).
   This dataset is claimed to come from the Bokulich et al. paper
   [Quality-filtering vastly improves diversity estimates from Illumina
-  amplicon sequencing](http://dx.doi.org/10.1038/nmeth.2276).
+  amplicon sequencing](http://dx.doi.org/10.1038/nmeth.2276).  I have
+  done this for the version in the `data/` directory.
 
 ### Command-line options
 
@@ -74,26 +80,26 @@ might be out-of-date.
   `foo`.  Required.  No default.
   * `--ncores=n` use _n_ threads.  The max (and default) value is the
   number of cores that the system has.  Optional.
-  * `--checkpointdir=foo` Write all checkpoint information to files in
-  the directory `foo`.
-  * `--printresult=true|false` Whether or not to print the resulting distance
-  matrix.  For a matrix of any size, it is impractical to print.  The
-  default is `false`.  If you set this to `true` then the result is
-  printed.
+* `--checkpointdir=foo` Write all checkpoint information to files in
+the directory `foo`.
+* `--printresult=true|false` Whether or not to print the resulting distance
+matrix.  For a matrix of any size, it is impractical to print.  The
+default is `false`.  If you set this to `true` then the result is
+printed.
 
 ### Sample command lines
 
-`./metrictest --metric=kmer --submetric=cosine --metricopt=7
---fasta=AF091148.fasta --distmatfname=AF091148-7mercosine-distances`
+`./metrictest --measure=kmer --submeasure=cosine --measureopt=7 --fasta=data/AF091148.fasta --distmatfname=AF091148-7mercosine-distances`
 
-`./metrictest --metric=kmer --submetric=euclidean --metricopt=7
---fasta=AF091148.fasta --distmatfname=AF091148-7mercosine-distances`
+`./metrictest --measure=kmer --submeasure=euclidean --measureopt=7 --fasta=data/AF091148.fasta --distmatfname=AF091148-7mereuclidean-distances`
 
-`./metrictest --ncores=7 --measure=edit --fasta=./AF091148.fasta
---distmatfname=AF091148-edit-distances`
+`./metrictest --ncores=7 --measure=edit --fasta=data/AF091148.fasta --distmatfname=AF091148-edit-distances`
 
-`./metrictest --measure=edit --measureopt=pam250ish --fasta=./AF091148.short.fasta --distmatfname=AF091148-edit-distances`  
-This uses edit weights from the file `pam250ish`.
+`./metrictest --measure=edit --measureopt=pam250ish --fasta=data/AF091148.short.fasta --distmatfname=AF091148-edit-distances`  
+
+This last one uses edit weights from the file `pam250ish` (which must
+exist before you run it).  That file is not included due to questions
+about the biological meanings of the values in it.
 
 ### Edit cost
 

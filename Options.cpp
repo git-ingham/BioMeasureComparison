@@ -47,7 +47,7 @@ Options::Options(int argc, char **argv)
     option_defs[findoption("measureopt")].checksanity = novalidation;
     option_defs[findoption("distmatfname")].checksanity = novalidation;
     option_defs[findoption("ncores")].checksanity = validatecores;
-    option_defs[findoption("checkpointdir")].checksanity = validatedir;
+    option_defs[findoption("checkpointdir")].checksanity = novalidation;
 
     // Default values
     set("checkpointdir", "./metrictest.checkpoint");

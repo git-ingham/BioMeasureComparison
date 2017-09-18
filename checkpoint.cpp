@@ -64,8 +64,9 @@ Options::cleancheckpointdir(void)
 	    remove(x.path());
 	}
     } else {
-        errx(1, "Checkpoint dir '%s' does not exist and I will not create it.",
-	    get("checkpointdir").c_str());
+	if (mkdir(get("checkpointdir").c_str(), 0755) < 0)
+	    err(1, "Checkpoint dir '%s' does not exist and creating it failed",
+		get("checkpointdir").c_str());
     }
 }
 

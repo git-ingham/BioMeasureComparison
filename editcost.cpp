@@ -90,6 +90,5 @@ editcost::custom_cost()
     c.deletion = [this] (const char a) -> unsigned int {return this->deletion(a);};
     c.substitution = [this] (const char a, const char b) -> unsigned int {return this->substitution(a,b);};
 
-    std::cerr << "insertion for 'a': " << c.insertion('a') << std::endl;
     return c;
 }

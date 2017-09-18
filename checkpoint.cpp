@@ -3,6 +3,7 @@
 #include <signal.h>
 #include <iostream>
 #include <fstream>
+#include <sys/stat.h>
 #include "utils.h"
 #include <boost/filesystem.hpp>
 

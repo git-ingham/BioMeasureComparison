@@ -90,6 +90,10 @@ Options::Options(int argc, char **argv)
 		    std::cerr << err << std::endl;
 		    error = true;
 		}
+	    } else if (opt == '?') {
+		// Need tp print the usage statement
+		found = true;
+	        error = true;
 	    }
 	}
 	if (!found) {

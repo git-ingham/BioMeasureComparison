@@ -47,7 +47,7 @@ $(BUILDDIR)/editmetric.o: $(SRCDIR)/editmetric.cpp $(SRCDIR)/editmetric.h $(SRCD
 	$(CXX) -c $(CXXFLAGS) -Wno-sign-compare -o $@ editmetric.cpp
 
 README.txt: README.md
-	pandoc -f markdown -t plain --wrap=none README.md -o README.txt
+	-pandoc -f markdown -t plain --wrap=none README.md -o README.txt
 
 testdistance: $(SRCDIR)/testdistance.o $(SRCDIR)/distancematrix.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $*

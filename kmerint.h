@@ -42,6 +42,21 @@ class kmerint {
         k = k_p;
         init_bitmask();
     };
+
+public:
+    kmerint(const unsigned int k_p) {
+        init_k(k_p);
+    };
+    kmerint(const unsigned int k_p, const std::string kmer) {
+        init_k(k_p);
+        setkmer(kmer);
+    };
+    kmerint(const unsigned int k_p, const kmer_storage_t hash) {
+        init_k(k_p);
+        setkmerhash(hash);
+    };
+    ~kmerint() {};
+    
     std::tuple<bool,std::string> validate_k(const unsigned int k_p) {
         static std::string init("deBruijn constructor: (");
         init += std::to_string(k_p) + std::string(") ");
@@ -52,30 +67,22 @@ class kmerint {
         return std::make_tuple(true, std::string(""));
     };
 
-public:
-    void set(const std::string kmer) {
+    void setkmer(const std::string kmer) {
         kmerhash = string_to_hash(kmer);
     };
-    void set(const kmer_storage_t kmer) { // ### Is this a good idea to allow setting with a hash directly?
+    void setkmerhash(const kmer_storage_t kmer) {
         kmerhash = kmer;
     };
-    std::string get() {
+    std::string getkmer() {
         return hash_to_string(kmerhash);
     };
+    kmer_storage_t getkmerhash() {
+        return kmerhash;
+    };
+    unsigned int get_k() {
+        return k;
+    };
     
-    kmerint(const unsigned int k_p) {
-        init_k(k_p);
-    };
-    kmerint(const unsigned int k_p, const std::string kmer) {
-        init_k(k_p);
-        set(kmer);
-    };
-    kmerint(const unsigned int k_p, const kmer_storage_t kmer) {
-        init_k(k_p);
-        set(kmer);
-    };
-    ~kmerint() {};
-
     static inline unsigned int
     base_to_int(const char base) {
         if (base == 'a' || base == 'A')
@@ -113,9 +120,9 @@ public:
         return hash;
     };
     
-    std::string hash_to_string(kmer_storage_t kmer) const {
+    std::string hash_to_string(kmer_storage_t kmer) {
         std::string result = "";
-        for (unsigned int i=0; i < k; ++i) {
+        for (unsigned int i=0; i<k; ++i) {
             result += int_to_base(kmer & base_bitmask);
             kmer >>= base_nbits;
         }
@@ -133,12 +140,14 @@ public:
         return count;
     };
 
-    void print() {
-        std::cout << "k: " << std::dec << k << std::endl;
-        std::cout << "kbitmask: " << std::hex << kbitmask << std::endl;
+    void print(const std::string prefix = "") {
+        std::cout << prefix << "k: " << std::dec << k << std::endl;
+        std::cout << prefix << "kbitmask: 0x" << std::hex << std::setfill('0') << kbitmask << std::endl;
+        std::cout << prefix << "kmer: " << hash_to_string(kmerhash) << std::endl;
+        std::cout << prefix << "kmerhash: 0x" << std::hex << std::setfill('0') << std::setw(k*base_nbits/4) << kmerhash << std::endl;
     };
     
-    void test_kmerint(const bool verbose = true) {
+    void test(const bool verbose = true) {
         if (verbose) print();
         
         // does kbitmask cover all possible values and nothing more?
@@ -147,7 +156,7 @@ public:
         if (verbose) std::cout << "n bits in base_bitmask: " << count_bits(base_bitmask) << std::endl;
         assert(count_bits(kbitmask) == count_bits(base_bitmask)*k);
         if (verbose) std::cout << "kbitmask is OK." << std::endl;
-        
+                
         // does base_to_int() properly invert int_to_base and vice versa?
         assert(bases.length() == alphabet_size);
         for (unsigned int i=0; i<alphabet_size; ++i) {
@@ -174,9 +183,25 @@ public:
         if (verbose) std::cout << "hash of kmer is: 0x" << std::hex << std::setfill('0') << std::setw(k*base_nbits/4) << h << std::endl;
         std::string vv = hash_to_string(h);
         if (verbose) std::cout << "string from hash is: '" << vv << "'" << std::endl;
-        
         assert(vv.compare(kmer) == 0);
         assert(h == string_to_hash(vv));
+        
+        // Do all setters and getters work properly?
+        kmer = "";
+        for (unsigned int i=0; i<k; ++i) {
+            kmer += int_to_base(i % alphabet_size);
+        }
+        setkmer(kmer);
+        assert(kmer.compare(hash_to_string(kmerhash)) == 0);
+        assert(getkmerhash() == kmerhash);
+        assert(getkmer().compare(hash_to_string(kmerhash)) == 0);
+        //### This test is weak
+        for (unsigned int i=0; i<alphabet_size; ++i) {
+            setkmerhash(i);
+            assert(kmerhash == i);
+            assert(hash_to_string(kmerhash).compare(hash_to_string(i)) == 0);
+        }
+        
         std::cout << "All tests for k = " << std::dec << k << " succeeded." << std::endl;
         if (verbose) std::cout << std::endl;
     };

@@ -2,11 +2,11 @@ BUILDDIR=objs
 SRCDIR=.
 
 # C compiler choice
-#CXX=g++
-CXX=clang++
+CXX=g++
+#CXX=clang++
 
 INC=-Iedit_distance/include
-CXXFLAGS=-Wall -g $(INC) -std=c++11
+CXXFLAGS=-Wall -g $(INC) -std=c++17
 #CXXFLAGS=-Wall -O3 -g $(INC) -std=c++11
 
 # for static linking when the target is a different system missing
@@ -23,7 +23,7 @@ default: metrictest README.txt
 #	metrictest.o distancematrix.o utils.o checkpoint.o editcost.o
 SRCS = checkpoint.cpp createmetric.cpp distancematrix.cpp editcost.cpp\
 	editmetric.cpp fasta.cpp kmermetric.cpp metric.cpp metrictest.cpp\
-	Options.cpp utils.cpp
+	Options.cpp utils.cpp debruijn.cpp
 OBJS = $(patsubst %.cpp,$(BUILDDIR)/%.o,$(SRCS))
 metrictest: $(BUILDDIR) $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(LDFLAGS) 
@@ -49,8 +49,26 @@ $(BUILDDIR)/editmetric.o: $(SRCDIR)/editmetric.cpp $(SRCDIR)/editmetric.h $(SRCD
 README.txt: README.md
 	-pandoc -f markdown -t plain --wrap=none README.md -o README.txt
 
-testdistance: $(SRCDIR)/testdistance.o $(SRCDIR)/distancematrix.o
+testdistance: $(BUILDDIR)/testdistance.o $(BUILDDIR)/distancematrix.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $*
+
+testkmerint: $(BUILDDIR)/testkmerint.o
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $(BUILDDIR)/testkmerint.o
+$(BUILDDIR)/testkmerint.o: $(SRCDIR)/testkmerint.cpp $(SRCDIR)/kmerint.h
+	$(CXX) -c $(CXXFLAGS) -o $@ testkmerint.cpp
+
+testdebruijnnode: $(BUILDDIR)/testdebruijnnode.o
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $(BUILDDIR)/testdebruijnnode.o
+$(BUILDDIR)/testdebruijnnode.o: $(SRCDIR)/testdebruijnnode.cpp $(SRCDIR)/deBruijnNode.h
+	$(CXX) -c $(CXXFLAGS) -o $@ testdebruijnnode.cpp
+
+$(BUILDDIR)testintbase: $(SRCDIR)/testintbase.cpp $(SRCDIR)/intbase.h
+	$(CXX) -c $(CXXFLAGS) -o $@ $(SRCDIR)/testintbase.cpp
+
+testdebruijn: $(BUILDDIR)/testdebruijn.o $(BUILDDIR)/debruijn.o
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $(BUILDDIR)/testdebruijn.o $(BUILDDIR)/debruijn.o
+$(BUILDDIR)/testdebruijn.o: $(SRCDIR)/testdebruijn.cpp $(SRCDIR)/debruijn.h
+	$(CXX) -c $(CXXFLAGS) -o $@ testdebruijn.cpp
 
 MeasureComparison.tgz: 
 	(cd ..; tar czf MeasureComparison/$@ MeasureComparison/{*.cpp,*.h,Makefile,edit_distance})

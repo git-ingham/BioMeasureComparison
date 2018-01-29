@@ -1,5 +1,6 @@
-#include "kmerint.h"
 #include <iostream>
+#include "kmerint.h"
+#include "intbase.h"
 
 int main()
 {

@@ -36,6 +36,16 @@ public:
     char get_base() {
         return bases[base];
     };
+    void set_base(unsigned int b) {
+        if (b < alphabet_size) {
+            base = b;
+        } else {
+            errx(1, "base %u >= alphabet size %u\n", b, alphabet_size);
+        }
+    };
+    void set_base(const char b) {
+        set_base(base_to_int(b));
+    };
     static unsigned int
     base_to_int(const char base) {
         for (unsigned int i=0; i<alphabet_size; ++i)

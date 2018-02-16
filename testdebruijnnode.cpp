@@ -8,7 +8,7 @@ int main()
     for (unsigned int k=min_k; k<max_k; ++k) {
         std::string kmer("");
         for (unsigned int i=0; i<k; ++i)
-            kmer += kmerint::int_to_base(i % alphabet_size);
+            kmer += intbase::int_to_base(i % alphabet_size);
         if (verbose) std::cout << "test kmer is '" << kmer << "'" << std::endl;
 
         std::cout << "Making a node with k = " << k << std::endl;

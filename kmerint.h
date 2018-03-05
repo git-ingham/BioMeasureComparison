@@ -22,27 +22,42 @@ const unsigned int max_k = 32;
 const unsigned int min_k = 2; // Need to be able to have prefixes and suffixes
 
 class kmerint {
-    //### Should use intbase and not unsigned int
-    unsigned int k = 0;
-    kmer_storage_t kbitmask;  // bit mask for all bits actually used in kmer storage
+    unsigned int k;
+    kmer_storage_t kmerbitmask;  // bit mask for all bits actually used in kmer storage
     kmer_storage_t kmerhash;
 
     void init_bitmask() {
         assert(k > 0);
-        kbitmask = 0;
+        kmerbitmask = 0;
         for (kmer_storage_t i=0; i<k; ++i) {
-            kbitmask <<= base_nbits;
-            kbitmask |= base_bitmask;
+            kmerbitmask <<= base_nbits;
+            kmerbitmask |= base_bitmask;
         }
     };
     void init_k(const unsigned int k_p) {
-        auto [ok, errmsg] = validate_k(k_p);
-        if (!ok) errx(1, "%s", errmsg.c_str());
+        std::string init("kmerint validate_k: (");
+        init += std::to_string(k_p) + std::string(") ");
+        // Error checking
+        if (k_p > max_k) {
+            std::cerr << init + std::string("> max k (") + std::to_string(max_k) + std::string(")") << std::endl;
+            assert(k_p <= max_k);
+        }
+        if (k_p < min_k) {
+            std::cerr << init + std::string("< min k (") + std::to_string(min_k) + std::string(")") << std::endl;
+            assert(k_p >= min_k);
+        }
+
+        // Passed error check.
         k = k_p;
         init_bitmask();
     };
 
 public:
+    kmerint(const kmerint &k_p) {
+        k = k_p.k;
+        kmerhash = k_p.kmerhash;
+        kmerbitmask = k_p.kmerbitmask;
+    };
     kmerint(const unsigned int k_p) {
         init_k(k_p);
     };
@@ -54,17 +69,8 @@ public:
         init_k(k_p);
         set_kmerhash(hash);
     };
-    ~kmerint() {};
 
-    std::tuple<bool,std::string> validate_k(const unsigned int k_p) {
-        static std::string init("deBruijn constructor: (");
-        init += std::to_string(k_p) + std::string(") ");
-        if (k_p > max_k)
-            return std::make_tuple(false, init + std::string("> max k (") + std::to_string(max_k) + std::string(")"));
-        if (k_p < min_k)
-            return std::make_tuple(false, init + std::string("< min k (") + std::to_string(min_k) + std::string(")"));
-        return std::make_tuple(true, std::string(""));
-    };
+    ~kmerint() {};
 
     void set_kmer(const std::string kmer) {
         kmerhash = string_to_hash(kmer);
@@ -78,11 +84,11 @@ public:
     kmer_storage_t get_kmerhash() const {
         return kmerhash;
     };
-    unsigned int get_k() const {
+    unsigned int get_k() {
         return k;
     };
     kmer_storage_t get_kmerbitmask(void) const {
-        return kbitmask;
+        return kmerbitmask;
     };
     std::string get_prefix(void) const {
         return hash_to_string(kmerhash).substr(0,k-1);
@@ -94,42 +100,74 @@ public:
         return kmerhash >> base_nbits;
     };
     kmer_storage_t get_suffixhash(void) const {
-        return kmerhash & (kbitmask >> base_nbits);
+        return kmerhash & (kmerbitmask >> base_nbits);
     };
     kmer_storage_t maxhash(void) const {
+        return (alphabet_size << k)-1;
+    };
+    kmer_storage_t end(void) const {
         return pow(alphabet_size, k);
+    };
+    kmer_storage_t begin(void) const {
+        return 0;
     };
 
     kmerint operator=(const kmerint &rhs) {
         if (this == &rhs)      // Same object?
             return *this;      // Yes, so skip assignment, and just return *this.
-        k = rhs.get_k();
-        kbitmask = rhs.get_kmerbitmask();
+        k = rhs.k;
+        kmerbitmask = rhs.get_kmerbitmask();
         kmerhash = rhs.get_kmerhash();
         return *this;
     };
 
     // Caution: ++ and += operate very differently!
     kmerint& operator++() {
+        // ++ increment the hash value
         ++kmerhash;
-        kmerhash &= kbitmask;
+        if (kmerhash == end())
+            return *this; // Special handling for the end case
+        kmerhash &= kmerbitmask;
         return *this;
     };
     kmerint& operator--() {
         --kmerhash;
-        kmerhash &= kbitmask;
+        kmerhash &= kmerbitmask;
         return *this;
     };
-
     kmerint& operator+=(const char base) {
-        kmerhash = ((kmerhash << base_nbits) & kbitmask) | intbase::base_to_int(base);
+        kmerhash = ((kmerhash << base_nbits) & kmerbitmask) | intbase::base_to_int(base);
         return *this;
     };
-    kmerint operator+(const char base) {
+    // Caution: ++ and += operate very differently!
+    kmerint& operator+=(const intbase &base) {
+        // Add the base onto the existing kmer, leftmost base goes away
+        kmerhash = ((kmerhash << base_nbits) & kmerbitmask) | base.get_int();
+        return *this;
+    };
+//     kmerint operator+(const char base) {
+//         kmerint result = *this;
+//         result += base;
+//         return result;
+//     };
+    kmerint operator+(const intbase &base) {
         kmerint result = *this;
         result += base;
         return result;
     };
+    bool operator<(const kmer_storage_t rhs) {
+        return kmerhash < rhs;
+    };
+    bool operator>(const kmer_storage_t rhs) {
+        return kmerhash > rhs;
+    };
+    bool operator==(const kmer_storage_t rhs) {
+        return kmerhash == rhs;
+    };
+    bool operator==(const kmerint rhs) const {
+        return kmerhash == rhs.kmerhash;
+    };
+
 
     kmer_storage_t string_to_hash(const std::string& kmer) const {
         assert(kmer.length() == k);
@@ -164,20 +202,25 @@ public:
     };
 
     void print(const std::string prefix = "") const {
-        std::cout << prefix << "kmerhash: 0x" << std::hex << std::setfill('0') << std::setw(k*base_nbits/4) << kmerhash << std::endl;
-        std::cout << prefix << "kmer: " << hash_to_string(kmerhash) << std::endl;
-        std::cout << prefix << "k: " << std::dec << k << std::endl;
-        std::cout << prefix << "kbitmask: 0x" << std::hex << std::setfill('0') << kbitmask << std::endl;
+        std::cout << prefix << *this << std::endl;
+    };
+    friend std::ostream& operator<< (std::ostream &stream, kmerint ki) {
+        stream << "{kmerhash: 0x" << std::hex << std::setfill('0') << std::setw(ki.k*base_nbits/4);
+        stream << ki.kmerhash << "; ";
+        stream << "kmer: " << ki.hash_to_string(ki.kmerhash) << "; ";
+        stream << "k: " << ki.k << "; ";
+        stream << "kmerbitmask: 0x" << std::hex << std::setfill('0') << ki.kmerbitmask << "}";
+        return stream;
     };
 
     void test(const bool verbose = true) {
         if (verbose) print();
 
         // does kbitmask cover all possible values and nothing more?
-        if (verbose) std::cout << "n bits in kbitmask: " << count_bits(kbitmask)<< std::endl;
+        if (verbose) std::cout << "n bits in kmerbitmask: " << count_bits(kmerbitmask)<< std::endl;
         if (verbose) std::cout << "n bits in base_bitmask: " << count_bits(base_bitmask) << std::endl;
-        assert(count_bits(kbitmask) == count_bits(base_bitmask)*k);
-        if (verbose) std::cout << "kbitmask is OK." << std::endl;
+        assert(count_bits(kmerbitmask) == count_bits(base_bitmask)*k);
+        if (verbose) std::cout << "kmerbitmask is OK." << std::endl;
 
         // does string_to_hash properly invert hash_to_string and vice versa?
         std::string kmer("");
@@ -202,14 +245,14 @@ public:
         assert(kmer.compare(hash_to_string(kmerhash)) == 0);
         assert(get_kmerhash() == kmerhash);
         assert(get_kmer().compare(hash_to_string(kmerhash)) == 0);
-        // ### This test is weak; needs to ensure that all edge cases are covered
+
         for (unsigned int i=0; i<alphabet_size; ++i) {
             set_kmerhash(i);
             assert(kmerhash == i);
             assert(hash_to_string(kmerhash).compare(hash_to_string(i)) == 0);
         }
 
-        // ### Verify ++ and -- work properly, including wraparound 0 and max value
+        // Verify ++ and -- work properly, including wraparound 0 and max value
         kmerint ki(k, 0);
         if (verbose) {
             std::cout << "initial creation with hash 0: " << std::endl;
@@ -222,7 +265,7 @@ public:
             std::cout << "after decrement: " << std::endl;
             ki.print("    ");
         }
-        assert(ki.get_kmerhash() == kbitmask);
+        assert(ki.get_kmerhash() == kmerbitmask);
         ++ki;
         if (verbose) {
             std::cout << "after increment: " << std::endl;
@@ -242,5 +285,17 @@ public:
         if (verbose) std::cout << std::endl;
     };
 };
+
+namespace std
+{
+template <>
+struct hash<kmerint>
+{
+    size_t operator()(const kmerint& ki) const
+    {
+        return hash<unsigned int>()(ki.get_kmerhash());
+    }
+};
+}
 
 #endif // KMERINT_H

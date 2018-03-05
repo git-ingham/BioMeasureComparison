@@ -23,7 +23,7 @@ default: metrictest README.txt
 #	metrictest.o distancematrix.o utils.o checkpoint.o editcost.o
 SRCS = checkpoint.cpp createmetric.cpp distancematrix.cpp editcost.cpp\
 	editmetric.cpp fasta.cpp kmermetric.cpp metric.cpp metrictest.cpp\
-	Options.cpp utils.cpp debruijn.cpp
+	Options.cpp utils.cpp deBruijnGraph.cpp
 OBJS = $(patsubst %.cpp,$(BUILDDIR)/%.o,$(SRCS))
 metrictest: $(BUILDDIR) $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(LDFLAGS) 
@@ -45,6 +45,7 @@ $(BUILDDIR)/metrictest.o: $(SRCDIR)/metrictest.cpp $(SRCDIR)/utils.h $(SRCDIR)/c
 	$(CXX) -c $(CXXFLAGS) -o $@ $<
 $(BUILDDIR)/editmetric.o: $(SRCDIR)/editmetric.cpp $(SRCDIR)/editmetric.h $(SRCDIR)/metric.h
 	$(CXX) -c $(CXXFLAGS) -Wno-sign-compare -o $@ editmetric.cpp
+$(BUILDDIR)/deBruijnGraph.o: $(SRCDIR)/deBruijnGraph.cpp $(SRCDIR)/deBruijnNode.h $(SRCDIR)/kmerint.h $(SRCDIR)/intbase.h
 
 README.txt: README.md
 	-pandoc -f markdown -t plain --wrap=none README.md -o README.txt
@@ -65,9 +66,9 @@ $(BUILDDIR)/testdebruijnnode.o: $(SRCDIR)/testdebruijnnode.cpp $(SRCDIR)/deBruij
 $(BUILDDIR)testintbase: $(SRCDIR)/testintbase.cpp $(SRCDIR)/intbase.h
 	$(CXX) -c $(CXXFLAGS) -o $@ $(SRCDIR)/testintbase.cpp
 
-testdebruijn: $(BUILDDIR)/testdebruijn.o $(BUILDDIR)/debruijn.o
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $(BUILDDIR)/testdebruijn.o $(BUILDDIR)/debruijn.o
-$(BUILDDIR)/testdebruijn.o: $(SRCDIR)/testdebruijn.cpp $(SRCDIR)/debruijn.h
+testdebruijn: $(BUILDDIR)/testdebruijn.o $(BUILDDIR)/deBruijnGraph.o
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $(BUILDDIR)/testdebruijn.o $(BUILDDIR)/deBruijnGraph.o
+$(BUILDDIR)/testdebruijn.o: $(SRCDIR)/testdebruijn.cpp $(BUILDDIR)/deBruijnGraph.o
 	$(CXX) -c $(CXXFLAGS) -o $@ testdebruijn.cpp
 
 MeasureComparison.tgz: 

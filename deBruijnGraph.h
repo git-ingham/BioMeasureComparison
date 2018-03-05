@@ -38,7 +38,8 @@ public:
     deBruijnNode* find_node(const kmerint& kmer, bool create);
     void make_complete_graph(void);
     void consistency_check(void);
-//  ### need test code for graph operations
+    // ### need test code for graph operations such as find_node
+    // ### need test code for copy constructor
     void print(std::string comment = "", std::string prefix = "");
     void graphviz(std::string fname, std::string comment = "");
     // ### Need the Earth mover distance function(s)

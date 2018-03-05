@@ -14,6 +14,7 @@
 
 // This meets standards
 typedef uint64_t kmer_storage_t;
+// Code for up to 32 should be OK, but 14 caused memory issues in deBruijn Graph
 const unsigned int max_k = 32;
 // Non-standard; cout does not work with it
 //typedef unsigned __int128 kmer_storage_t;

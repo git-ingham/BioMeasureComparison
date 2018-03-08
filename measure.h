@@ -1,11 +1,11 @@
-// Interface for all metric functions
+// Interface for all measure functions
 
-#ifndef METRIC_H
-#define METRIC_H
+#ifndef MEASURE_H
+#define MEASURE_H
 
 #include "fasta.h"
 
-class metric {
+class measure {
     public:
 	virtual void init() {};
 	virtual void printdetails() {};
@@ -14,9 +14,9 @@ class metric {
 	virtual long double compare(const FastaRecord& a, const FastaRecord& b) const {return -1.0;};
 
 	// Not needed?
-	//virtual metric& operator=(const metric &c) {};
+	//virtual measure& operator=(const measure &c) {};
 
-	//virtual ~metric() {};
+	//virtual ~measure() {};
 };
 
-#endif // METRIC_H
+#endif // MEASURE_H

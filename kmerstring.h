@@ -1,68 +1,50 @@
-#ifndef KMERMETRIC_H
-#define KMERMETRIC_H
+#ifndef KMERSTRING_H
+#define KMERSTRING_H
 
 #include "metric.h"
 #include "fasta.h"
 #include <map>
 #include <string>
 #include <math.h>
+#include <assert.h>
 
-                 // kmer     count
-typedef std::map<std::string, unsigned int> kmer_t;
-               // sequence    kmers
-typedef std::map<std::string, kmer_t*> kmers_t;
-
-              // sequence     sum of kmer count squares for cosine compare
+// sequence     sum of kmer count squares for cosine compare
 typedef std::map<std::string, long double> kmersum_t;
 
-enum variants {euclidean, cosine};
 
-class kmermetric : public metric {
-    const unsigned int default_n = 11;
-    unsigned int n = default_n;
-    const long double halfpi = 2.0 * atanl(1.0);
-    kmers_t kmers;
-    kmersum_t sums; // for caching cosine calculated data
+class kmerstring {
+    //               kmer         count
+    typedef std::map<std::string, unsigned int> kmerstring_t;
+    //               sequence     kmers
+    typedef std::map<std::string, kmerstring_t*> kmerstrings_t;
+    
+    const unsigned int min_k = 2; // Need to be able to have prefixes and suffixes
+    unsigned int k;
+    std::string kmer;
 
-    //variants algorithm = euclidean;
-    variants algorithm = cosine;
+public:
+    kmerstring(unsigned int k_p) {
+        assert(k_p >= min_k);
+        k = k_p;
+    };
 
-    void calculate_set(const std::string& seq);
-    long double calculate_sum(const std::string& seq);
+    ~kmerstring() {};
 
-    long double euclideancompare(const std::string& aseq, const std::string& bseq) const;
-    long double cosinecompare   (const std::string& aseq, const std::string& bseq) const;
+    unsigned int get_k(void) const {
+        return k;
+    };
+    std::string get_kmer(void) const {
+        return kmer;
+    };
+        std::string get_kmer(void) const {
+        return kmer;
+    };
 
-    public:
-	void init(void) { n = default_n; };
-	void init(const unsigned int in) { n = in; };
-	void init(const unsigned int in, const fastavec_t& seqs);
-	//void init(void) { n = default_n; kmers.erase(kmers.begin()); };
-	//void init(const unsigned int in) { n = in; kmers.erase(kmers.begin()); };
 
-	void printdetails() {
-	    std::cerr << "kmer distance:" << std::endl;
-	    std::cerr << "    k = " << n << std::endl;
-	    std::cerr << "    variant: " << atostring(algorithm) << std::endl;
-	};
-
-	long double compare(const FastaRecord& a, const FastaRecord& b) const;
-
-	// member functions beyond metric
-	unsigned int get_n(void) const { return n; };
-	unsigned int set_n(const unsigned int in) { unsigned int old=n; n = in; return old; };
-
-	variants get_algorithm(void) { return algorithm; }
-	variants set_algorithm(variants a) { variants old = algorithm; algorithm = a; return old; }
-	variants set_algorithm(const std::string& a) { variants old = algorithm; algorithm = stringtoa(a); return old; }
-
-	std::string atostring(variants v);
-	variants stringtoa(const std::string& v);
-
-	kmermetric(void) {init();};
-	kmermetric(const unsigned int in) {init(in);};
-
-	~kmermetric() {};
+    friend std::ostream& operator<< (std::ostream &stream, kmerint ki) {
+        stream << "{kmer: " << kmer << "; k: " << k "}";
+        return stream;
+    };    
 };
 
-#endif // KMERMETRIC_H
+#endif // KMERSTRING_H

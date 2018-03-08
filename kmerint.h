@@ -12,17 +12,16 @@
 
 #include "intbase.h"
 
-// This meets standards
-typedef uint64_t kmer_storage_t;
-// Code for up to 32 should be OK, but 14 caused memory issues in deBruijn Graph
-const unsigned int max_k = 32;
-// Non-standard; cout does not work with it
-//typedef unsigned __int128 kmer_storage_t;
-//const unsigned int max_k = 64;
-
-const unsigned int min_k = 2; // Need to be able to have prefixes and suffixes
-
 class kmerint {
+    // This meets standards
+    typedef uint64_t kmer_storage_t;
+    // Code for up to 32 should be OK, but 14 caused memory issues in deBruijn Graph
+    const unsigned int max_k = 32;
+    // Non-standard; cout does not work with it
+//     typedef unsigned __int128 kmer_storage_t;
+//     const unsigned int max_k = 64;
+
+    const unsigned int min_k = 2; // Need to be able to have prefixes and suffixes
     unsigned int k;
     kmer_storage_t kmerbitmask;  // bit mask for all bits actually used in kmer storage
     kmer_storage_t kmerhash;

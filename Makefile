@@ -52,6 +52,7 @@ TESTOBJS=${TESTEXE}\
 
 testdistance: $(BUILDDIR)/testdistance.o $(BUILDDIR)/distancematrix.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $*
+$(BUILDDIR)/testdistance.o: testdistance.cpp distancematrix.h
 
 testkmerint: $(BUILDDIR)/testkmerint.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $(BUILDDIR)/testkmerint.o

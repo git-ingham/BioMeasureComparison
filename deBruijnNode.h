@@ -37,7 +37,6 @@ class deBruijnGraph;
 class deBruijnNode {
     typedef std::unordered_multimap<intbase, deBruijnNode*> in_set_t;
 
-//     deBruijnNode* out_edges[alphabet_size]; //!< The out edges from this node
     std::map<intbase, deBruijnNode*> out_edges; //!< The out edges from this node
     in_set_t in_edges;      //!< The in edges to this node
     kmerint nodevalue;      //!< The hash of the kmer that this node represents
@@ -45,8 +44,6 @@ class deBruijnNode {
     bool verbose = true;   //!< whether or not to emit debugging statements.
 
     void init_edges(void) {
-//         for (unsigned int i=0; i<alphabet_size; ++i) {
-//             out_edges[i] = nullptr;
         for (intbase b=b.begin(); b != b.end(); ++b) {
             out_edges.emplace(b, nullptr);
         }
@@ -96,7 +93,6 @@ public:
         // We do not delete anything because we do not allocate anything.
 
         // clear all pointers that point to us
-//         for (unsigned i=0; i<alphabet_size; ++i) {
         for (intbase b=b.begin(); b != b.end(); ++b) {
             if (out_edges[b] != nullptr) {
                 out_edges[b]->clear_inptr(b, this);
@@ -225,8 +221,6 @@ public:
         auto it = in_edges.equal_range(base);
         if (it.first != in_edges.end()) {
             for (auto b=it.first; b != it.second; ++b) {
-                // Look for an outptr to this
-//                 if (b->second->get_outptr(base) == from) {
                 if (b->second == from) {
                     // the order of operations prevents infinte loop in clearing in/out ptrs
                     deBruijnNode* t = b->second;

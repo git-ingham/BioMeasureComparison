@@ -122,36 +122,15 @@ public:
         return *this;
     };
 
-    //! @todo remove this code after the next git commit
-    // Caution: ++ and += operate very differently!
-//     kmerint& operator++() {
-//         // ++ increment the hash value
-//         ++kmerhash;
-//         if (kmerhash == end())
-//             return *this; // Special handling for the end case
-//         kmerhash &= kmerbitmask;
-//         return *this;
-//     };
-//     kmerint& operator--() {
-//         --kmerhash;
-//         kmerhash &= kmerbitmask;
-//         return *this;
-//     };
     kmerint& operator+=(const char base) {
         kmerhash = ((kmerhash << base_nbits) & kmerbitmask) | intbase::base_to_int(base);
         return *this;
     };
-    // Caution: ++ and += operate very differently!
     kmerint& operator+=(const intbase &base) {
         // Add the base onto the existing kmer, leftmost base goes away
         kmerhash = ((kmerhash << base_nbits) & kmerbitmask) | base.get_int();
         return *this;
     };
-//     kmerint operator+(const char base) {
-//         kmerint result = *this;
-//         result += base;
-//         return result;
-//     };
     kmerint operator+(const intbase &base) {
         kmerint result = *this;
         result += base;
@@ -264,28 +243,6 @@ public:
         }
         
         kmerint ki(k, 0);
-
-        // commented out because ++ and -- are meaningless for a kmer
-        //! @todo remove this code after the next git commit
-//         // Verify ++ and -- work properly, including wraparound 0 and max value
-//         if (verbose) {
-//             std::cout << "initial creation with hash 0: " << std::endl;
-//             ki.print("    ");
-//         }
-//         assert(ki.get_kmerhash() == 0);
-//         // wrap around 0
-//         --ki;
-//         if (verbose) {
-//             std::cout << "after decrement: " << std::endl;
-//             ki.print("    ");
-//         }
-//         assert(ki.get_kmerhash() == ki.kmerhash);
-//         ++ki;
-//         if (verbose) {
-//             std::cout << "after increment: " << std::endl;
-//             ki.print("    ");
-//         }
-//         assert(ki.get_kmerhash() == 0);
 
         // verify += works
         ki += 'C';

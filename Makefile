@@ -45,7 +45,8 @@ $(BUILDDIR)/deBruijnGraph.o: $(SRCDIR)/deBruijnGraph.cpp $(SRCDIR)/deBruijnNode.
 README.txt: README.md
 	-pandoc -f markdown -t plain --wrap=none README.md -o README.txt
 
-TESTOBJS=testdistance testkmerint testdebruijnnode testintbase testdebruijn\
+TESTEXE=testdistance testkmerint testdebruijnnode testintbase testdebruijn
+TESTOBJS=${TESTEXE}\
 	$(BUILDDIR)/testkmerint.o $(BUILDDIR)/testdebruijnnode.o\
 	$(BUILDDIR)/testintbase.o $(BUILDDIR)/testdebruijn.o
 
@@ -72,6 +73,8 @@ testdebruijn: $(BUILDDIR)/testdebruijn.o $(BUILDDIR)/deBruijnGraph.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $(BUILDDIR)/testdebruijn.o $(BUILDDIR)/deBruijnGraph.o
 $(BUILDDIR)/testdebruijn.o: $(SRCDIR)/testdebruijn.cpp $(BUILDDIR)/deBruijnGraph.o
 	$(CXX) -c $(CXXFLAGS) -o $@ testdebruijn.cpp
+
+all: ${TESTEXE} measuretest
 
 .PHONY: clean
 clean:

@@ -142,12 +142,18 @@ public:
     };
     void set_outptr(const intbase& base, deBruijnNode* value) {
         set_myname;
+
         // Sanity checking
         assert(value != nullptr);
 
-        if (verbose)
-            std::cout << myname << ": asked to set " << nodevalue.get_kmer() << " + " << base
-                      << " -> " << value->get_kmer() << std::endl;
+        if (verbose) {
+            std::cout << myname << ": asked to set" << std::endl;
+            std::cout << "    " << nodevalue << std::endl;
+            std::cout << "    + " << std::endl;
+            std::cout << "    " << base << std::endl;
+            std::cout << "    -> " << std::endl;
+            std::cout << "    " << value << std::endl;
+        }
 
         // verify that this->suffix + base matches value->kmer
         inout_consistency(myname, this, base, value);
@@ -271,6 +277,12 @@ public:
         }
     };
     static void inout_consistency(const std::string where, deBruijnNode *in, const intbase& ib, deBruijnNode *out) {
+        set_myname;
+        if (true) {
+            std::cout << myname << " in: " << in << std::endl;
+            std::cout << myname << " base: " << ib << std::endl;
+            std::cout << myname << " out: " << out << std::endl;
+        }
         char basec = ib.get_base();
         // verify that value->suffix + base matches this->kmer
         std::string suffix = in->get_suffix();
@@ -350,14 +362,12 @@ public:
         };
     };
 
-    /*!
+    /**
      * @brief perform a thorough test on this node.
-     * @Assumption
+     * @Assumption this node is just created
      * @example testdebruijnnode.cpp
      */
     void test(const bool verbose = true) {
-        // Assumption: node is just created.
-
         // At creation time, all pointers are null
         for (unsigned int base=0; base<alphabet_size; ++base) {
             assert(in_edges.empty());
@@ -368,7 +378,10 @@ public:
         // Add in pointer and corresponding out pointer is updated
         for (intbase b(b.begin()); b<b.end(); ++b) {
             kmerint next = nodevalue + b;
+            if (verbose) std::cout << "next: " << next << std::endl;
             deBruijnNode* n2 = new deBruijnNode(next);
+            if (verbose) std::cout << "n2: " << n2 << std::endl;
+
             set_outptr(b, n2);
             inout_consistency("deBruijnNode::test", this, b, n2);
 

@@ -94,11 +94,11 @@ public:
     std::string get_prefix(void) const {
         return hash_to_string(kmerhash).substr(0,k-1);
     };
-    std::string get_suffix(void) const {
-        return hash_to_string(kmerhash).substr(1,k-1);
-    };
     kmer_storage_t get_prefixhash(void) const {
         return kmerhash >> base_nbits;
+    };
+    std::string get_suffix(void) const {
+        return hash_to_string(kmerhash).substr(1,k-1);
     };
     kmer_storage_t get_suffixhash(void) const {
         return kmerhash & (kmerbitmask >> base_nbits);

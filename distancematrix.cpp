@@ -182,6 +182,34 @@ distancematrix::set(const unsigned int i, const unsigned int j, const long doubl
 }
 
 void
+distancematrix::checksanity()
+{
+    int n;
+
+    // Check for non-0 diagonal
+    n = 0;
+    for (unsigned int i=0; i<size; ++i) 
+        if (get(i,i) != 0.0) {
+	    ++n;
+	    std::cerr << i << " self distance " << get(i,i) << std::endl;
+	}
+    if (n > 0)
+        std::cerr << n << " non-zero self distances" << std::endl;
+
+    // Check upper triangle for 0 not on diagonal.
+    n = 0;
+    for (unsigned int i=0; i<size-1; ++i) 
+	for (unsigned int j=i+1; j<size; ++j) 
+	    if (get(i,j) == 0.0) {
+		++n;
+		std::cerr << i << ", " << j << " distance 0" << std::endl;
+	    }
+
+    if (n > 0)
+        std::cerr << n << " zero non-self distances" << std::endl;
+}
+
+void
 distancematrix::print(void) const
 {
     long double max = 0;

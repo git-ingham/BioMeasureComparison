@@ -42,7 +42,6 @@ class intbase {
     };
 
 public:
-    //!
     intbase(void) {
         init_logging();
         base = begin(); // initialized to first legal value unless via a constructor with an initial value.

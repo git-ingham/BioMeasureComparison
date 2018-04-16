@@ -1,10 +1,8 @@
-/*
-    implementation of DeBruijn graphs for investigting the EMD distance as
-    described in Mangul & Coskicki
-    http://dx.doi.org/10.1145%2F2975167.2975174
-
-    https://en.wikipedia.org/wiki/De_Bruijn_graph
-*/
+/*!
+ * A DeBruijn graph for comparing ssequence distances
+ *  https://en.wikipedia.org/wiki/De_Bruijn_graph
+ *  Mangul & Coskicki used deBruijn graphs compared with the earth-mover distance to copare sequences.  Read about it here: http://dx.doi.org/10.1145%2F2975167.2975174
+ */
 
 #include <iostream>
 #include <fstream>
@@ -14,14 +12,15 @@
 deBruijnGraph::deBruijnGraph(const unsigned int k_p) {
     k = k_p;
 }
-deBruijnGraph::deBruijnGraph(deBruijnGraph &db) {
-    // deep copy constructor
-    k = db.k;
-    //b = db.b;
-    for (auto it=db.graph.begin(); it != db.graph.end(); ++it) {
-        graph[it->first] = new deBruijnNode(it->second, this);
-    }
-}
+//! @todo commented out because of a circular dependency in the graph and node.
+// deBruijnGraph::deBruijnGraph(deBruijnGraph &db) {
+//     // deep copy constructor
+//     k = db.k;
+//     //b = db.b;
+//     for (auto it=db.graph.begin(); it != db.graph.end(); ++it) {
+//         graph[it->first] = new deBruijnNode(it->second, this);
+//     }
+// }
 
 deBruijnGraph::~deBruijnGraph() { // free up all storage allocated in this class
     auto it = graph.begin();

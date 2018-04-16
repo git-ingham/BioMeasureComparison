@@ -1,7 +1,7 @@
-#ifndef EDITMETRIC_H
-#define EDITMETRIC_H
+#ifndef EDITMEASURE_H
+#define EDITMEASURE_H
 
-#include "metric.h"
+#include "measure.h"
 #include "editcost.h"
 
 #include <boost/algorithm/sequence/edit_distance.hpp>
@@ -10,23 +10,18 @@
 using boost::algorithm::sequence::edit_distance;
 using namespace boost::algorithm::sequence::parameter;
 
-class editmetric : public metric {
+class editmeasure : public measure {
     editcost cost;
     custom_cost_s custom_cost;
     bool use_cost = false;
 
     public:
-	editmetric(std::string costfname);
-	~editmetric() {};
+	editmeasure(std::string costfname);
+	~editmeasure() {};
 
-	long double compare(const FastaRecord& a, const FastaRecord& b) const;
+	long double compare(const FastaRecord& a, const FastaRecord& b);
 
-	void printdetails() {
-	    std::cerr << "Levenshtein distance:" << std::endl;
-	    if (use_cost) 
-	        cost.print();
-	    else 
-	        std::cerr << "    Unit cost for all operations." << std::endl;
-	};
+	void printdetails(void);
+    void test() {}; //!< @todo implement this
 };
-#endif // EDITMETRIC_H
+#endif // EDITMEASURE_H

@@ -1,46 +1,67 @@
 #ifndef INTBASE_H
 #define INTBASE_H
 
-/*
- * a class to hold the knowledge about mapping bases to ints and vice versa
+/*! @file intbase.h
+ *  @brief A biological sequence base stored as an integer and utilities to work with it
  */
 
 #include <err.h>
-#include <assert.h>
 #include <iostream>
+#include <log4cxx/logger.h>
 
-const unsigned int alphabet_size = 4; // Number of bases we work with
-const unsigned int base_bitmask = 0x3;
-const unsigned int base_nbits = 2; // Number of bits used to store a base
+const unsigned int alphabet_size = 4;  //!< Number of bases we work with
+const unsigned int base_bitmask = 0x3; //!< bitmask for a single base in an integer
+const unsigned int base_nbits = 2;     //!< Number of bits used to store a base
 
-static const std::string bases = "ACGT";
-static const std::string lcbases = "acgt"; // must match above
-static const char mapping[alphabet_size] = { 'A', 'C', 'G', 'T'}; // must match above
+static const std::string bases = "ACGT>";   //!< All legal bases plus end indicator
+static const std::string lcbases = "acgt>"; //!< Lower-case version of legal bases.  Must match bases
+static const char mapping[alphabet_size+1] = { 'A', 'C', 'G', 'T', '>'}; //!< character to base value mapping.  must match bases
 
+// These lines were used for debugging to simplify the graph
 // const unsigned int alphabet_size = 2; // Number of bases we work with
 // const unsigned int base_bitmask = 0x1;
 // const unsigned int base_nbits = 1; // Number of bits used to store a base
-// 
+//
 // static const std::string bases = "AC";
 // static const std::string lcbases = "ac"; // must match above
 // static const char mapping[alphabet_size] = { 'A', 'C'}; // must match above
 
+/*! @class intbase
+ * @brief a class to hold the knowledge about mapping sequence bases to integers and vice versa
+ */
 
 class intbase {
-    unsigned int base = begin();  // Documented to be initialized to first legal value.
+    //! The base value
+    unsigned int base;
+
+    // logging
+    log4cxx::LoggerPtr logger = nullptr;
+
+    void init_logging(void) {
+        logger = log4cxx::Logger::getLogger("intbase");
+    };
 
 public:
-    intbase(void) {};
+    //!
+    intbase(void) {
+        init_logging();
+        base = begin(); // initialized to first legal value unless via a constructor with an initial value.
+    };
     intbase(const char b) {
+        init_logging();
         base = base_to_int(b);
     };
     intbase(const unsigned int b) {
-        if (b < alphabet_size)
+        init_logging();
+        if (b <= alphabet_size)
             base = b;
-        else
-            errx(1, "intbase constructor: Invalid int base value b %u should be in [0..%u)", b, alphabet_size);
+        else {
+            LOG4CXX_FATAL(logger, "intbase constructor: Invalid int base value b " << b << " should be in [0.." << alphabet_size << "].  " << alphabet_size << " is invalid, but is the end indicator.");
+            abort();
+        }
     };
     intbase(const intbase &i) {
+        init_logging();
         base = i.base;
     };
     unsigned int get_int() const {
@@ -53,8 +74,8 @@ public:
         if (b < alphabet_size) {
             base = b;
         } else {
-            std::cerr << "base " << b << " >= alphabet size " << alphabet_size << std::endl;
-            assert(b < alphabet_size);
+            LOG4CXX_FATAL(logger, "base " << b << " >= alphabet size " << alphabet_size);
+            abort();
         }
     };
     void set_base(const char b) {
@@ -62,22 +83,35 @@ public:
     };
     static unsigned int
     base_to_int(const char base) {
-        for (unsigned int i=0; i<alphabet_size; ++i)
+        for (unsigned int i=0; i<alphabet_size; ++i) {
             if (base == bases[i] || base == lcbases[i])
                 return i;
-        std::cerr << "base_to_int: unknown base '" << base << "'" << std::endl;
+        }
+        log4cxx::LoggerPtr logger(log4cxx::Logger::getLogger("intbase"));
+        LOG4CXX_FATAL(logger, "base_to_int: unknown base '" << base << "'");
         abort();
         /*NOTREACHED*/
     };
 
+    /**
+    * @brief Convert from an unsigned integer to the character it represents.  The value 
+    * >' is used to indicate the end value that is not a legal base, but is a legal value to allow loops to run.
+    * 
+    * @param value The integer to convert to the corresponding character base
+    * @return char value of the base.
+    */
     static char
     int_to_base(unsigned int value) {
-        if (value < alphabet_size)
+        if (value < alphabet_size) {
             return mapping[value];
-        // else fatal error
-        std::cerr << "int_to_base: invalid base value: " << value << " (max " << alphabet_size << ")" << std::endl;
-        assert(value < alphabet_size);
+        } else if (value == alphabet_size) {
+            return '>';
+        } else { // fatal error
+            log4cxx::LoggerPtr logger(log4cxx::Logger::getLogger("intbase"));
 
+            LOG4CXX_FATAL(logger, "int_to_base: invalid base value: " << value << " (max " << alphabet_size << ")");
+            abort();
+        }
         /*NOTREACHED*/
         return 0;
     };
@@ -89,16 +123,22 @@ public:
         return *this;
     };
     intbase& operator=(const unsigned int i) {
-        assert(i < alphabet_size);
+        if (i >= alphabet_size) {
+            LOG4CXX_FATAL(logger, "i >= alphabet_size");
+            abort();
+        }
         base = i;
         return *this;
     };
     intbase& operator++(void) { // Allowed to equal intbase::end()
         if (base < alphabet_size)
             ++base;
-        else { // base > alphabet_size-1; we should never be here
-            std::cerr << "intbase ++ tried to wrap around!" << std::endl;
-            assert(base < alphabet_size);
+        else if (base == alphabet_size) {
+            // do nothing; we are at the end and cannot increment more
+        }
+        else { // base > alphabet_size; we should never be here
+            LOG4CXX_FATAL(logger, "intbase ++ on too-large value!");
+            abort();
         }
         return *this;
     };
@@ -124,10 +164,13 @@ public:
     bool operator!=(const intbase& rhs) const {
         return !(*this == rhs);
     };
+    //! @todo need rest of relational operators
 
+    //! the first legal value
     static unsigned int begin(void) {
         return 0;
     };
+    //! one past the last legal value
     static unsigned int end(void) {
         return alphabet_size;
     };
@@ -141,64 +184,95 @@ public:
         return stream;
     };
 
-    void test(bool verbose = true) {
-        assert(bases.length() == alphabet_size);
+    //! @brief Unit test for intbase class
+    void test() {
+        if (bases.length() != alphabet_size+1) {
+            LOG4CXX_FATAL(logger, "number of bases does not equal alphabet_size+1!");
+            abort();
+        }
 
         // base_to_int and int_to_base work
         for (unsigned int i=0; i<alphabet_size; ++i) {
-            std::cout << "i: " << i << "; base: " << bases[i] << std::endl;
-            assert(int_to_base(i) == bases[i]);
-            assert(base_to_int(bases[i]) == i);
+            LOG4CXX_TRACE(logger, "i: " << i << "; base: " << bases[i]);
+            if (int_to_base(i) != bases[i]) {
+                LOG4CXX_FATAL(logger, "int_to_base(i) != bases[i]");
+                abort();
+            }
+            if (base_to_int(bases[i]) != i) {
+                LOG4CXX_FATAL(logger, "base_to_int(bases[i]) != i");
+                abort();
+            }
 
-            char base = intbase::int_to_base(i);
-            unsigned int ui = intbase::base_to_int(base);
-            assert(ui == i);
-            if (verbose) std::cout << "i: " << std::dec << i << " converts to '" << base << "'." << std::endl;
+            char base = int_to_base(i);
+            unsigned int ui = base_to_int(base);
+            if (ui != i) {
+                LOG4CXX_FATAL(logger, "base_to_int(bases[i]) != i");
+                abort();
+            }
+
+            LOG4CXX_TRACE(logger, "i: " << std::dec << i << " converts to '" << base << "'.");
 
             base = bases.at(i);
             ui = intbase::base_to_int(base);
-            assert(ui == i);
+            if (ui != i) {
+                LOG4CXX_FATAL(logger, "ui != i");
+                abort();
+            }
 
-            if (verbose) std::cout << "base '" << base << "' converts to " << std::dec << ui << "." << std::endl;
+            LOG4CXX_TRACE(logger, "base '" << base << "' converts to " << std::dec << ui << ".");
         }
-        if (verbose) std::cout << "base_to_int and int_to_base work OK." << std::endl;
+        LOG4CXX_INFO(logger, "base_to_int and int_to_base work OK.");
 
         intbase ib; // We do not test ourselves, because we do not know the state of "base"
-        if (verbose) ib.print("Newly-created intbase: ");
+        LOG4CXX_DEBUG(logger, "Newly-created intbase: " << ib);
 
         // start at min value
-        assert(ib.get_int() == begin());
+        if (ib.get_int() != begin()) {
+            LOG4CXX_FATAL(logger, "ib.get_int() != begin()");
+            abort();
+        }
 
         // ++ operator works
-        for (unsigned int i=1; i<alphabet_size; ++i) {
+        for (unsigned int i=1; i<end(); ++i) {
             ++ib;
-            if (verbose) {
-                std::cout << "i: " << i << "; ib: ";
-                ib.print();
+            LOG4CXX_DEBUG(logger, "i: " << i << "; ib: " << ib);
+            if (ib.get_base() != int_to_base(i)) {
+                LOG4CXX_FATAL(logger, "ib.get_base() != int_to_base(i)");
+                abort();
             }
-            assert(ib.get_base() == int_to_base(i));
         }
-        assert(ib.get_int() == end());
+        LOG4CXX_DEBUG(logger, "After ++ loop, ib is: " << ib);
 
         // -- operator works
         for (unsigned int i=alphabet_size; i>0; --i) {
-            if (verbose) {
-                std::cout << "i: " << i << "; ib: ";
-                ib.print();
+            LOG4CXX_DEBUG(logger, "i: " << i << "; ib: " << ib);
+            if (ib.get_base() != int_to_base(i-1)) {
+                LOG4CXX_FATAL(logger, "ib.get_base() != int_to_base(i-1)");
+                abort();
             }
-            assert(ib.get_base() == int_to_base(i-1));
             --ib;
         }
-        if (verbose) ib.print("After -- loop, ib is: ");
-        assert(ib.get_int() == end()); // last --ib should wrap around
+        LOG4CXX_DEBUG(logger, "After -- loop, ib is: " << ib);
 
         // >, <, ==, and != operators work
         intbase ib2((unsigned int)1);
-        assert(ib2 < ib);
-        assert(ib > ib2);
-        assert(ib == ib);
-        assert(ib2 != ib);
-        if (verbose) std::cout << "Relational operators work." << std::endl;
+        if (!(ib2 < ib)) {
+            LOG4CXX_FATAL(logger, "ib2 >= ib");
+            abort();
+        }
+        if (!(ib > ib2)) {
+            LOG4CXX_FATAL(logger, "ib <= ib2");
+            abort();
+        }
+        if (!(ib == ib)) {
+            LOG4CXX_FATAL(logger, "ib != ib");
+            abort();
+        }
+        if (!(ib2 != ib)) {
+            LOG4CXX_FATAL(logger, "ib2 == ib");
+            abort();
+        }
+        LOG4CXX_INFO(logger, "Relational operators work.");
     };
 };
 

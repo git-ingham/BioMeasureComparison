@@ -70,8 +70,8 @@ public:
     };
     /*! @brief Copy constructor
      *
-     * We can only create a node by (deep) copying another node if we have access to the destination graph to be able
-     * to set the in and out pointers properly.
+     * We can only create a node by (deep) copying another node if we have access to the
+     * destination graph to be able to set the in and out pointers properly.
      *
      * @param[in] srcnode the node to copy
      * @param[in,out] dstgraph the graph into which we are copying this node

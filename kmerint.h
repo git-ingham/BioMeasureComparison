@@ -64,10 +64,12 @@ public:
     };
     kmerint(const unsigned int k_p, const std::string kmer_p) : kmer(k_p) {
         validate_k_max(k_p);
+        init_bitmask();
         set_kmer(kmer_p);
     };
     kmerint(const unsigned int k_p, const kmer_storage_t hash) : kmer(k_p) {
         validate_k_max(k_p);
+        init_bitmask();
         set_kmerhash(hash);
     };
 
@@ -122,6 +124,24 @@ public:
         return *this;
     };
 
+    // Caution: ++ and += operate very differently!
+    // These operators exist because the deBruijnNode code needs to crete a complete graph,
+    // which requires iterating through all possible values.
+    kmerint& operator++() {
+        // ++ increment the hash value
+        ++kmerhash;
+        if (kmerhash == end())
+            return *this; // Special handling for the end case
+        kmerhash &= kmerbitmask;
+        return *this;
+    };
+    kmerint& operator--() {
+        --kmerhash;
+        kmerhash &= kmerbitmask;
+        return *this;
+    };
+
+    // Caution: ++ and += operate very differently!
     kmerint& operator+=(const char base) {
         kmerhash = ((kmerhash << base_nbits) & kmerbitmask) | intbase::base_to_int(base);
         return *this;
@@ -209,8 +229,8 @@ public:
         if (verbose) std::cout << "n bits in kmerbitmask: " << count_bits(kmerbitmask)<< std::endl;
         if (verbose) std::cout << "n bits in base_bitmask: " << count_bits(base_bitmask) << std::endl;
         assert(count_bits(kmerbitmask) == count_bits(base_bitmask)*k);
-        if (verbose) std::cout << "kmerbitmask is OK." << std::endl;
         assert(get_kmerbitmask() == kmerbitmask);
+        if (verbose) std::cout << "kmerbitmask is OK." << std::endl;
 
         // does string_to_hash properly invert hash_to_string and vice versa?
         std::string kmer("");
@@ -241,8 +261,49 @@ public:
             assert(kmerhash == i);
             assert(hash_to_string(kmerhash).compare(hash_to_string(i)) == 0);
         }
+
+        // tests for each of the constructors
+        kmerint k1(k);
+        if (verbose) std::cout << "k1: " << k1 << std::endl;
+        assert(k1.k == k);
+        assert(k1.kmerbitmask == kmerbitmask);
+        assert(k1.kmerhash == 0);
+
+        kmerint k2(*this);
+        if (verbose) std::cout << "k2: " << k2 << std::endl;
+        assert(k2.k == k);
+        assert(k2.kmerbitmask == kmerbitmask);
+        assert(k2.kmerhash == kmerhash);
+
+        std::string k3k = "CC"; //! @todo should make this k characters long; 2 is minimum
+        kmerint k3(k, k3k);
+        if (verbose) std::cout << "k3: " << k3 << std::endl;
+        assert(k3.k == k);
+        assert(k3.kmerbitmask == kmerbitmask);
+        assert(k3.kmerhash == string_to_hash(k3k));
         
+        kmerint k4(k, string_to_hash(k3k));
+        if (verbose) std::cout << "k4: " << k4 << std::endl;
+        assert(k4.k == k);
+        assert(k4.kmerbitmask == kmerbitmask);
+        assert(k4.kmerhash == string_to_hash(k3k));
+
+        // Verify ++ and -- work properly, including wraparound 0 and max value
         kmerint ki(k, 0);
+        if (verbose) std::cout << "ki initial creation with hash 0: " << ki << std::endl;
+        assert(ki.get_kmerhash() == 0);
+        ++ki;
+        if (verbose) {
+            std::cout << "after increment: " << ki << std::endl;
+        }
+        assert(ki.get_kmerhash() == 1);
+        --ki;
+        if (verbose) {
+            std::cout << "after decrement: " << ki << std::endl;
+        }
+        assert(ki.kmerhash == 0);
+
+        //! @todo test wrapping around with ++ and --
 
         // verify += works
         ki += 'C';
@@ -250,7 +311,7 @@ public:
             std::cout << "After += C: " <<  std::endl;
             ki.print("    ");
         }
-        assert(ki.get_kmerhash() == intbase::base_to_int('C'));
+        assert(ki.get_kmerhash() == intbase::base_to_int('C')); //! @todo this is a bogus check that happens to work.  Should not be comparing a two-element kmer with a single base.
 
         std::cout << "All tests for k = " << std::dec << k << " succeeded." << std::endl;
         if (verbose) std::cout << std::endl;

@@ -1,91 +1,122 @@
 #ifndef DEBRUIJNNODE
 #define DEBRUIJNNODE
 
-/*
-    Definition and implementation of a node in a DeBruijn graph for investigting the EMD distance as
-    described in Mangul & Coskicki
-    http://dx.doi.org/10.1145%2F2975167.2975174
-*/
+/*! @file deBruijnNode.h
+ *  @brief Declaration and implementation of a node in a DeBruijn graph
+ */
 
 #include <string>
 #include <iostream>
 #include <fstream>
+#include <map>
+#include <typeinfo>
 #include <unordered_map>
 #include <iterator>
 #include "kmerint.h"
 #include "intbase.h"
 #include "deBruijnGraph.h"
+#include "myname.h"
+
+class deBruijnGraph;
+
+/*! @class deBruijnNode
+    @brief A node in a DeBruijn graph for biological sequence distance measures
+
+    A node has in and out edges.  Setting an out edge means that we need to update the corresponding in edge.
+    Each node can have only one out edge per base, but multiple nodes can have pointers to a given node.  This
+    means that we have to use a set for in edges, while a simple array indexed by the base is sufficient for
+    out edges.
+
+    Some measures need to know the occurrence frequency of a given kmer, so we store that and make it accessible by a getter.
+
+    @author Kenneth Ingham
+
+    @warning the kmer provided at construction time cannot be changed.  To do so would invalidate in and out pointers.
+*/
 
 class deBruijnNode {
     typedef std::unordered_multimap<intbase, deBruijnNode*> in_set_t;
 
-    deBruijnNode* out_edges[alphabet_size];
-    in_set_t in_edges;
-    kmerint nodevalue;
-    double kmerfreq;
-    bool verbose = false;
+//     deBruijnNode* out_edges[alphabet_size]; //!< The out edges from this node
+    std::map<intbase, deBruijnNode*> out_edges; //!< The out edges from this node
+    in_set_t in_edges;      //!< The in edges to this node
+    kmerint nodevalue;      //!< The hash of the kmer that this node represents
+    double kmerfreq;        //!< Optional occurrence frequency for this kmer; some measures use this
+    bool verbose = true;   //!< whether or not to emit debugging statements.
 
     void init_edges(void) {
-        for (unsigned int i=0; i<alphabet_size; ++i) {
-            out_edges[i] = nullptr;
+//         for (unsigned int i=0; i<alphabet_size; ++i) {
+//             out_edges[i] = nullptr;
+        for (intbase b=b.begin(); b != b.end(); ++b) {
+            out_edges.emplace(b, nullptr);
         }
         in_edges.clear();
     }
 
 public:
+    /*! @brief Constructor taking a string representation of a kmer
+     *  @param[in] k the length of the kmer
+     *  @param[in] value a string holding the kmer to store in thie node
+     *  @param[in] nodefreq_p the occurrence frequency for the node; optional
+     */
     deBruijnNode(const unsigned int k, const std::string value, const double nodefreq_p = 0.0) : nodevalue(k, value) {
         init_edges();
         kmerfreq = nodefreq_p;
     };
-    deBruijnNode(const unsigned int k, const kmer_storage_t value, const double nodefreq_p = 0.0) : nodevalue(k, value) {
-        init_edges();
-        kmerfreq = nodefreq_p;
-    };
+    /*! @brief Constructor taking a kmerint representation of a kmer; value of k is implied by the kmerint
+     * @param[in] value a hash of kmer to store in thie node;
+     * @param[in] nodefreq_p the occurrence frequency for the node; optional
+     */
     deBruijnNode(const kmerint &value, const double nodefreq_p = 0.0) : nodevalue(value) {
         init_edges();
         kmerfreq = nodefreq_p;
     };
-    // We can only create a nody by copying another node if we have access to the destination graph to be able to set the in and out pointers
-    deBruijnNode(const deBruijnNode* srcnode, const deBruijnGraph *dstgraph) {
-        // deep copy
-        nodevalue = srcnode->nodevalue;
-        kmerfreq = srcnode->kmerfreq;
-        init_edges();
-        // copy in and out pointers
-        for (intbase b=b.begin(); b != b.end(); ++b) {
-            out_edges[b] = dstgraph->find_node(srcnode->get_kmerhash, true);
-            auto it = srcnode->in_edges.equal_range(base);
-            for (auto p=it.first; p != it.second; ++p) {
-                set_inptr(b, dstgraph->find_node(p->get_kmerhash, true));
-            }
-        }
-    }
+    /*! @brief Copy constructor
+     *
+     * We can only create a node by (deep) copying another node if we have access to the destination graph to be able
+     * to set the in and out pointers properly.
+     *
+     * @param[in] srcnode the node to copy
+     * @param[in,out] dstgraph the graph into which we are copying this node
+    */
+//     deBruijnNode(const deBruijnNode* srcnode, const deBruijnGraph *dstgraph) : nodevalue(srcnode->nodevalue) {
+//         // deep copy
+//         kmerfreq = srcnode->kmerfreq;
+//         init_edges();
+//         // copy in and out pointers
+//         for (intbase b=b.begin(); b!=b.end(); ++b) {
+//             out_edges[b] = dstgraph->find_node(srcnode->get_kmerhash, true);
+//             auto it = srcnode->in_edges.equal_range(b);
+//             for (auto p=it.first; p != it.second; ++p) {
+//                 set_inptr(b, dstgraph->find_node(p->get_kmerhash, true));
+//             }
+//         }
+//     }
     ~deBruijnNode() {
         // We do not delete anything because we do not allocate anything.
 
         // clear all pointers that point to us
-        for (unsigned i=0; i<alphabet_size; ++i) {
-            if (out_edges[i] != nullptr) {
-                out_edges[i]->clear_inptr(i, this);
-                out_edges[i] = nullptr;
+//         for (unsigned i=0; i<alphabet_size; ++i) {
+        for (intbase b=b.begin(); b != b.end(); ++b) {
+            if (out_edges[b] != nullptr) {
+                out_edges[b]->clear_inptr(b, this);
+                out_edges[b] = nullptr;
             }
             while (!in_edges.empty()) {
                 deBruijnNode* n = in_edges.begin()->second;
                 in_edges.erase(in_edges.begin());
-                n->clear_outptr(i);
+                n->clear_outptr(b);
             }
         }
     };
 
+    //! getter for kmer node value as a string
     std::string get_kmer(void) const {
         return nodevalue.get_kmer();
     };
-    // set_kmer is dangerous because it would possibly make pointers invalid
-    kmer_storage_t get_kmerhash(void) {
-        return nodevalue.get_kmerhash();
-    };
-    kmer_storage_t get_kmerbitmask(void) {
-        return nodevalue.get_kmerbitmask();
+    //! getter for kmer hash value
+    kmerint get_kmerhash(void) {
+        return nodevalue;
     };
     std::string get_prefix(void) {
         return nodevalue.get_prefix();
@@ -114,14 +145,18 @@ public:
         return get_outptr(intbase::base_to_int(base));
     };
     void set_outptr(const intbase& base, deBruijnNode* value) {
+        set_myname;
+        // Sanity checking
         assert(value != nullptr);
-        // verify that this->suffix + base matches value->kmer
-        inout_consistency("deBruijnNode::set_outptr", this, base, value);
-        consistent_ptrs();
 
         if (verbose)
-            std::cout << "set_outptr: asked to set " << nodevalue.get_kmer() << " + " << base
+            std::cout << myname << ": asked to set " << nodevalue.get_kmer() << " + " << base
                       << " -> " << value->get_kmer() << std::endl;
+
+        // verify that this->suffix + base matches value->kmer
+        inout_consistency(myname, this, base, value);
+        consistent_ptrs();
+
         if (out_edges[base.get_int()] != value) {
             out_edges[base.get_int()] = value;
             value->set_inptr(base, this); // ensure a consistent pair of pointers
@@ -135,7 +170,7 @@ public:
     void set_outptr(const char base, deBruijnNode* value) {
         set_outptr(intbase(base), value);
     };
-    void clear_outptr(const unsigned int base) {
+    void clear_outptr(const intbase base) {
         if (out_edges[base] != nullptr) {
             deBruijnNode* t = out_edges[base];
             out_edges[base] = nullptr; // this prevents infinte loop in clearing in/out ptrs
@@ -144,7 +179,7 @@ public:
         // else nothing to do
     };
     void clear_outptr(const char base) {
-        clear_outptr(intbase::base_to_int(base));
+        clear_outptr(intbase(base));
     };
 
     // in edge maintenance
@@ -152,20 +187,21 @@ public:
         return in_edges.find(base);
     };
     auto get_inptrs(const char base) -> decltype(in_edges.find(base)) {
-        return get_inptrs(intbase::base_to_int(base));
+        return get_inptrs(intbase(base));
     };
     // More than one node can point to us
     void set_inptr(const intbase& base, deBruijnNode* value) {
+        set_myname;
         assert(value != nullptr);
-        inout_consistency("deBruijnNode::set_inptr", value, base, this);
+        inout_consistency(myname, value, base, this);
         // Consistency check passed.
 
         if (verbose)
-            std::cout << "set_inptr: asked to set " << value->get_kmer() << " + " << base
+            std::cout << myname << ": asked to set " << value->get_kmer() << " + " << base
                       << " -> " << nodevalue.get_kmer() << std::endl;
 
         if (!inptr_exists(base, value)) { // not found, add
-            if (verbose) std::cout << "    set_inptr: setting" << std::endl;
+            if (verbose) std::cout << "    " << myname << ": setting" << std::endl;
             in_edges.emplace(base, value);
             if (value->out_edges[base.get_int()] != this) {
                 if (value->out_edges[base.get_int()] != nullptr) {
@@ -177,7 +213,7 @@ public:
 //             value->set_outptr(base, this); // ensure a consistent pair of pointers
         } else {
             // else: assume that if the edge is already set, so is the back pointer
-            if (verbose) std::cout << "    set_inptr: Edge already set" << std::endl;
+            if (verbose) std::cout << "    " << myname << ": Edge already set" << std::endl;
         }
 
         consistent_ptrs();
@@ -185,7 +221,7 @@ public:
     void set_inptr(const char base, deBruijnNode* value) {
         set_inptr(intbase(base), value);
     };
-    void clear_inptr(const unsigned int base, const deBruijnNode* from) {
+    void clear_inptr(const intbase base, const deBruijnNode* from) {
         auto it = in_edges.equal_range(base);
         if (it.first != in_edges.end()) {
             for (auto b=it.first; b != it.second; ++b) {
@@ -202,7 +238,7 @@ public:
         }
     };
     void clear_inptr(const char base, const deBruijnNode* from) {
-        clear_inptr(intbase::base_to_int(base), from);
+        clear_inptr(intbase(base), from);
     };
     bool inptr_exists(const intbase& base, const deBruijnNode* from) {
         bool result = false;
@@ -219,7 +255,7 @@ public:
     void consistent_ptrs() {
         // This function does not return in the event of inconsistency
         // verify that all outptrs have inptrs from us
-        for (unsigned int b=intbase::begin(); b < intbase::end(); ++b) {
+        for (intbase b=b.begin(); b < b.end(); ++b) {
             if (out_edges[b] != nullptr && !out_edges[b]->inptr_exists(b, this)) {
                 std::cout << "Out edge inconsistency error." << std::endl;
                 std::cout << "This node is: " << std::endl << this;
@@ -257,22 +293,21 @@ public:
         std::string prefix = p + "    ";
         //nodevalue.print(prefix + "    ");
 
-        // ### use intbase instead of int
-        for (unsigned i=0; i<alphabet_size; ++i) {
-            if (out_edges[i] != nullptr) {
-                std::cout << prefix << "Out edge exists for " << intbase::int_to_base(i);
-                std::cout << " to " << out_edges[i]->get_kmer() << "." << std::endl;
+        for (intbase b=b.begin(); b != b.end(); ++b) {
+            if (out_edges.at(b) != nullptr) {
+                std::cout << prefix << "Out edge exists for " << b;
+                std::cout << " to " << out_edges.at(b)->get_kmer() << "." << std::endl;
             } else {
-                std::cout << prefix << "No out edge on " << intbase::int_to_base(i) << "." << std::endl;
+                std::cout << prefix << "No out edge on " << b << "." << std::endl;
             }
-            auto it = in_edges.equal_range(intbase(i));
+            auto it = in_edges.equal_range(b);
             if (it.first != in_edges.end()) {
-                for (auto b=it.first; b != in_edges.end(); ++b) {
-                    std::cout << prefix << "In edge from " << b->second->get_kmer();
-                    std::cout << " on " << intbase::int_to_base(i) << "." << std::endl;
+                for (auto ba=it.first; ba != in_edges.end(); ++ba) {
+                    std::cout << prefix << "In edge from " << ba->second->get_kmer();
+                    std::cout << " on " << b << "." << std::endl;
                 }
             } else {
-                std::cout << prefix << "No in edge on " << intbase::int_to_base(i) << "." << std::endl;
+                std::cout << prefix << "No in edge on " << b << "." << std::endl;
             }
         }
     };
@@ -321,6 +356,11 @@ public:
         };
     };
 
+    /*!
+     * @brief perform a thorough test on this node.
+     * @Assumption
+     * @example testdebruijnnode.cpp
+     */
     void test(const bool verbose = true) {
         // Assumption: node is just created.
 

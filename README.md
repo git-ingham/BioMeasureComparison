@@ -2,6 +2,9 @@
 Bioinformatics measure comparison framework with several implemented
 measure functions.
 
+This README is currently out-of-date.  I will update it as soon as
+everything is working again.
+
 This software is under active development and you should expect it to
 be buggy.  It might or might not work, and certainly is not guaranteed
 useable for any purpose whatsoever.

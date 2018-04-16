@@ -1,8 +1,8 @@
 #ifndef KMERSTRING_H
 #define KMERSTRING_H
 
-#include "metric.h"
-#include "fasta.h"
+#include "kmer.h"
+#include "FastaRecord.h"
 #include <map>
 #include <string>
 #include <math.h>
@@ -12,39 +12,40 @@
 typedef std::map<std::string, long double> kmersum_t;
 
 
-class kmerstring {
+class kmerstring : public kmer {
     //               kmer         count
     typedef std::map<std::string, unsigned int> kmerstring_t;
     //               sequence     kmers
     typedef std::map<std::string, kmerstring_t*> kmerstrings_t;
-    
-    const unsigned int min_k = 2; // Need to be able to have prefixes and suffixes
-    unsigned int k;
-    std::string kmer;
+
+    std::string kmer_s;
 
 public:
-    kmerstring(unsigned int k_p) {
-        assert(k_p >= min_k);
-        k = k_p;
-    };
+    using kmer::kmer;
 
     ~kmerstring() {};
 
-    unsigned int get_k(void) const {
-        return k;
+    void set_kmer(const std::string kmer_p) {
+        kmer_s = kmer_p;
     };
+    
     std::string get_kmer(void) const {
-        return kmer;
+        return kmer_s;
     };
-        std::string get_kmer(void) const {
-        return kmer;
+    std::string get_prefix(void) const {
+        return kmer_s.substr(0, kmer_s.length() - 1);
+    };
+    std::string get_suffix(void) const {
+        return kmer_s.substr(1);
+    };
+    bool operator<(const kmerstring& rhs) const {
+        return kmer_s.compare(rhs.kmer_s) < 0;
     };
 
-
-    friend std::ostream& operator<< (std::ostream &stream, kmerint ki) {
-        stream << "{kmer: " << kmer << "; k: " << k "}";
+    friend std::ostream& operator<< (std::ostream &stream, kmerstring ks) {
+        stream << "{kmer: " << ks.kmer_s << "; k: " << ks.k << "}";
         return stream;
-    };    
+    };
 };
 
 #endif // KMERSTRING_H

@@ -1,3 +1,6 @@
+//! @file kmerint.h
+//! @brief implenentation of a kmer stored as a hash in an integer
+
 #ifndef KMERINT_H
 #define KMERINT_H
 
@@ -10,73 +13,71 @@
 #include <algorithm>
 #include <cmath>
 
+#include "kmer.h"
 #include "intbase.h"
 
-class kmerint {
-    // This meets standards
+/*!
+ * @class kmerint
+ * @brief a kmer stored as a hash in an integer
+ */
+class kmerint : public kmer {
+    // This meets standards vs below which is non-standard and has problems but can handle longer k-mers
     typedef uint64_t kmer_storage_t;
     // Code for up to 32 should be OK, but 14 caused memory issues in deBruijn Graph
-    const unsigned int max_k = 32;
+    //const unsigned int max_k = 32; // defined in kmer.h
     // Non-standard; cout does not work with it
 //     typedef unsigned __int128 kmer_storage_t;
 //     const unsigned int max_k = 64;
 
-    const unsigned int min_k = 2; // Need to be able to have prefixes and suffixes
-    unsigned int k;
     kmer_storage_t kmerbitmask;  // bit mask for all bits actually used in kmer storage
     kmer_storage_t kmerhash;
 
     void init_bitmask() {
-        assert(k > 0);
         kmerbitmask = 0;
         for (kmer_storage_t i=0; i<k; ++i) {
             kmerbitmask <<= base_nbits;
             kmerbitmask |= base_bitmask;
         }
     };
-    void init_k(const unsigned int k_p) {
+
+    void validate_k_max(const unsigned int k_p) {
+        // superclass validates against min, nut not max k
         std::string init("kmerint validate_k: (");
-        init += std::to_string(k_p) + std::string(") ");
+        init += std::to_string(k_p);
+        init += std::string(") ");
         // Error checking
         if (k_p > max_k) {
             std::cerr << init + std::string("> max k (") + std::to_string(max_k) + std::string(")") << std::endl;
             assert(k_p <= max_k);
         }
-        if (k_p < min_k) {
-            std::cerr << init + std::string("< min k (") + std::to_string(min_k) + std::string(")") << std::endl;
-            assert(k_p >= min_k);
-        }
-
-        // Passed error check.
-        k = k_p;
-        init_bitmask();
     };
 
 public:
-    kmerint(const kmerint &k_p) {
-        k = k_p.k;
+    kmerint(const unsigned int k_p) : kmer(k_p) {
+        validate_k_max(k_p);
+        init_bitmask();
+    };
+    kmerint(const kmerint &k_p) : kmer(k_p.k) {
+        // presumably the other kmerint validated k against max_k
         kmerhash = k_p.kmerhash;
         kmerbitmask = k_p.kmerbitmask;
     };
-    kmerint(const unsigned int k_p) {
-        init_k(k_p);
+    kmerint(const unsigned int k_p, const std::string kmer_p) : kmer(k_p) {
+        validate_k_max(k_p);
+        set_kmer(kmer_p);
     };
-    kmerint(const unsigned int k_p, const std::string kmer) {
-        init_k(k_p);
-        set_kmer(kmer);
-    };
-    kmerint(const unsigned int k_p, const kmer_storage_t hash) {
-        init_k(k_p);
+    kmerint(const unsigned int k_p, const kmer_storage_t hash) : kmer(k_p) {
+        validate_k_max(k_p);
         set_kmerhash(hash);
     };
 
     ~kmerint() {};
 
-    void set_kmer(const std::string kmer) {
-        kmerhash = string_to_hash(kmer);
+    void set_kmer(const std::string kmer_p) {
+        kmerhash = string_to_hash(kmer_p);
     };
-    void set_kmerhash(const kmer_storage_t kmer) {
-        kmerhash = kmer;
+    void set_kmerhash(const kmer_storage_t kmer_p) {
+        kmerhash = kmer_p;
     };
     std::string get_kmer() const {
         return hash_to_string(kmerhash);
@@ -121,20 +122,21 @@ public:
         return *this;
     };
 
+    //! @todo remove this code after the next git commit
     // Caution: ++ and += operate very differently!
-    kmerint& operator++() {
-        // ++ increment the hash value
-        ++kmerhash;
-        if (kmerhash == end())
-            return *this; // Special handling for the end case
-        kmerhash &= kmerbitmask;
-        return *this;
-    };
-    kmerint& operator--() {
-        --kmerhash;
-        kmerhash &= kmerbitmask;
-        return *this;
-    };
+//     kmerint& operator++() {
+//         // ++ increment the hash value
+//         ++kmerhash;
+//         if (kmerhash == end())
+//             return *this; // Special handling for the end case
+//         kmerhash &= kmerbitmask;
+//         return *this;
+//     };
+//     kmerint& operator--() {
+//         --kmerhash;
+//         kmerhash &= kmerbitmask;
+//         return *this;
+//     };
     kmerint& operator+=(const char base) {
         kmerhash = ((kmerhash << base_nbits) & kmerbitmask) | intbase::base_to_int(base);
         return *this;
@@ -155,19 +157,27 @@ public:
         result += base;
         return result;
     };
-    bool operator<(const kmer_storage_t rhs) {
+    bool operator<(const kmer_storage_t rhs) const {
         return kmerhash < rhs;
     };
-    bool operator>(const kmer_storage_t rhs) {
-        return kmerhash > rhs;
+    bool operator<(const kmerint& rhs) const {
+        return kmerhash < rhs.kmerhash;
     };
-    bool operator==(const kmer_storage_t rhs) {
+    bool operator<(const kmerint* rhs) const {
+        return kmerhash < rhs->kmerhash;
+    };
+    bool operator>(const kmer_storage_t rhs) const {
+        return rhs < kmerhash;
+    };
+    bool operator>(const kmerint rhs) const {
+        return kmerhash > rhs.kmerhash;
+    };
+    bool operator==(const kmer_storage_t rhs) const {
         return kmerhash == rhs;
     };
     bool operator==(const kmerint rhs) const {
         return kmerhash == rhs.kmerhash;
     };
-
 
     kmer_storage_t string_to_hash(const std::string& kmer) const {
         assert(kmer.length() == k);
@@ -221,6 +231,7 @@ public:
         if (verbose) std::cout << "n bits in base_bitmask: " << count_bits(base_bitmask) << std::endl;
         assert(count_bits(kmerbitmask) == count_bits(base_bitmask)*k);
         if (verbose) std::cout << "kmerbitmask is OK." << std::endl;
+        assert(get_kmerbitmask() == kmerbitmask);
 
         // does string_to_hash properly invert hash_to_string and vice versa?
         std::string kmer("");
@@ -251,27 +262,30 @@ public:
             assert(kmerhash == i);
             assert(hash_to_string(kmerhash).compare(hash_to_string(i)) == 0);
         }
-
-        // Verify ++ and -- work properly, including wraparound 0 and max value
+        
         kmerint ki(k, 0);
-        if (verbose) {
-            std::cout << "initial creation with hash 0: " << std::endl;
-            ki.print("    ");
-        }
-        assert(ki.get_kmerhash() == 0);
-        // wrap around 0
-        --ki;
-        if (verbose) {
-            std::cout << "after decrement: " << std::endl;
-            ki.print("    ");
-        }
-        assert(ki.get_kmerhash() == kmerbitmask);
-        ++ki;
-        if (verbose) {
-            std::cout << "after increment: " << std::endl;
-            ki.print("    ");
-        }
-        assert(ki.get_kmerhash() == 0);
+
+        // commented out because ++ and -- are meaningless for a kmer
+        //! @todo remove this code after the next git commit
+//         // Verify ++ and -- work properly, including wraparound 0 and max value
+//         if (verbose) {
+//             std::cout << "initial creation with hash 0: " << std::endl;
+//             ki.print("    ");
+//         }
+//         assert(ki.get_kmerhash() == 0);
+//         // wrap around 0
+//         --ki;
+//         if (verbose) {
+//             std::cout << "after decrement: " << std::endl;
+//             ki.print("    ");
+//         }
+//         assert(ki.get_kmerhash() == ki.kmerhash);
+//         ++ki;
+//         if (verbose) {
+//             std::cout << "after increment: " << std::endl;
+//             ki.print("    ");
+//         }
+//         assert(ki.get_kmerhash() == 0);
 
         // verify += works
         ki += 'C';

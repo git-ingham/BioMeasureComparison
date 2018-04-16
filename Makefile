@@ -15,17 +15,16 @@ CXXFLAGS=-Wall -g $(INC) -std=c++17
 STATIC=
 #STATIC=-lstatic
 
-LDFLAGS=$(STATIC) -lm -pthread -lboost_program_options -lboost_filesystem -lboost_system
+#LDFLAGS=$(STATIC) -lm -pthread -lboost_program_options -lboost_filesystem -lboost_system -llog4cplus
+LDFLAGS=$(STATIC) -lm -pthread -lboost_program_options -lboost_filesystem -lboost_system -llog4cxx
 
-default: metrictest README.txt
+default: measuretest README.txt
 
-#OBJS = fasta.o Options.o metric.o editmetric.o kmermetric.o createmetric.o\
-#	metrictest.o distancematrix.o utils.o checkpoint.o editcost.o
-SRCS = checkpoint.cpp createmetric.cpp distancematrix.cpp editcost.cpp\
-	editmetric.cpp fasta.cpp kmermetric.cpp metric.cpp metrictest.cpp\
-	Options.cpp utils.cpp deBruijnGraph.cpp
+SRCS = checkpoint.cpp distancematrix.cpp editcost.cpp editmeasure.cpp\
+	FastaRecord.cpp measuretest.cpp Options.cpp utils.cpp kmerset.cpp\
+	deBruijnGraph.cpp cosinemeasure.cpp euclideanmeasure.cpp
 OBJS = $(patsubst %.cpp,$(BUILDDIR)/%.o,$(SRCS))
-metrictest: $(BUILDDIR) $(OBJS)
+measuretest: $(BUILDDIR) $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(LDFLAGS) 
 
 $(BUILDDIR):
@@ -37,18 +36,18 @@ $(BUILDDIR)/checkpoint.o: $(SRCDIR)/checkpoint.cpp $(SRCDIR)/checkpoint.h $(SRCD
 	$(CXX) -c $(CXXFLAGS) -o $@ $<
 $(BUILDDIR)/Options.o: $(SRCDIR)/Options.cpp $(SRCDIR)/Options.h $(SRCDIR)/utils.h $(SRCDIR)/checkpoint.h
 	$(CXX) -c $(CXXFLAGS) -o $@ $<
-$(BUILDDIR)/kmermetric.o: $(SRCDIR)/kmermetric.cpp $(SRCDIR)/kmermetric.h $(SRCDIR)/metric.h
+$(BUILDDIR)/measuretest.o: $(SRCDIR)/measuretest.cpp $(SRCDIR)/utils.h $(SRCDIR)/checkpoint.h $(SRCDIR)/FastaRecord.h $(SRCDIR)/Options.h $(SRCDIR)/editmeasure.h $(SRCDIR)/distancematrix.h 
 	$(CXX) -c $(CXXFLAGS) -o $@ $<
-$(BUILDDIR)/createmetric.o: $(SRCDIR)/createmetric.cpp $(SRCDIR)/createmetric.h $(SRCDIR)/kmermetric.h $(SRCDIR)/editmetric.h $(SRCDIR)/metric.h
-	$(CXX) -c $(CXXFLAGS) -o $@ $<
-$(BUILDDIR)/metrictest.o: $(SRCDIR)/metrictest.cpp $(SRCDIR)/utils.h $(SRCDIR)/checkpoint.h $(SRCDIR)/fasta.h $(SRCDIR)/Options.h $(SRCDIR)/editmetric.h $(SRCDIR)/distancematrix.h 
-	$(CXX) -c $(CXXFLAGS) -o $@ $<
-$(BUILDDIR)/editmetric.o: $(SRCDIR)/editmetric.cpp $(SRCDIR)/editmetric.h $(SRCDIR)/metric.h
-	$(CXX) -c $(CXXFLAGS) -Wno-sign-compare -o $@ editmetric.cpp
+$(BUILDDIR)/editmeasure.o: $(SRCDIR)/editmeasure.cpp $(SRCDIR)/editmeasure.h $(SRCDIR)/measure.h
+	$(CXX) -c $(CXXFLAGS) -Wno-sign-compare -o $@ editmeasure.cpp
 $(BUILDDIR)/deBruijnGraph.o: $(SRCDIR)/deBruijnGraph.cpp $(SRCDIR)/deBruijnNode.h $(SRCDIR)/kmerint.h $(SRCDIR)/intbase.h
 
 README.txt: README.md
 	-pandoc -f markdown -t plain --wrap=none README.md -o README.txt
+
+TESTOBJS=testdistance testkmerint testdebruijnnode testintbase testdebruijn\
+	$(BUILDDIR)/testkmerint.o $(BUILDDIR)/testdebruijnnode.o\
+	$(BUILDDIR)/testintbase.o $(BUILDDIR)/testdebruijn.o
 
 testdistance: $(BUILDDIR)/testdistance.o $(BUILDDIR)/distancematrix.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $*
@@ -58,25 +57,25 @@ testkmerint: $(BUILDDIR)/testkmerint.o
 $(BUILDDIR)/testkmerint.o: $(SRCDIR)/testkmerint.cpp $(SRCDIR)/kmerint.h
 	$(CXX) -c $(CXXFLAGS) -o $@ testkmerint.cpp
 
-testdebruijnnode: $(BUILDDIR)/testdebruijnnode.o
+testdebruijnnode: $(BUILDDIR)/testdebruijnnode.o deBruijnNode.h\
+	kmerint.h kmer.h intbase.h deBruijnGraph.h
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $(BUILDDIR)/testdebruijnnode.o
 $(BUILDDIR)/testdebruijnnode.o: $(SRCDIR)/testdebruijnnode.cpp $(SRCDIR)/deBruijnNode.h
 	$(CXX) -c $(CXXFLAGS) -o $@ testdebruijnnode.cpp
 
-$(BUILDDIR)testintbase: $(SRCDIR)/testintbase.cpp $(SRCDIR)/intbase.h
-	$(CXX) -c $(CXXFLAGS) -o $@ $(SRCDIR)/testintbase.cpp
+$(BUILDDIR)/testintbase.o: testintbase.cpp $(SRCDIR)/intbase.h
+	$(CXX) -c $(CXXFLAGS) -o $@ testintbase.cpp
+testintbase: $(BUILDDIR)/testintbase.o $(SRCDIR)/intbase.h
+	$(CXX) $(CXXFLAGS) -o $@ $(LDFLAGS) $(BUILDDIR)/testintbase.o 
 
 testdebruijn: $(BUILDDIR)/testdebruijn.o $(BUILDDIR)/deBruijnGraph.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $(BUILDDIR)/testdebruijn.o $(BUILDDIR)/deBruijnGraph.o
 $(BUILDDIR)/testdebruijn.o: $(SRCDIR)/testdebruijn.cpp $(BUILDDIR)/deBruijnGraph.o
 	$(CXX) -c $(CXXFLAGS) -o $@ testdebruijn.cpp
 
-MeasureComparison.tgz: 
-	(cd ..; tar czf MeasureComparison/$@ MeasureComparison/{*.cpp,*.h,Makefile,edit_distance})
-
 .PHONY: clean
 clean:
-	rm -f $(OBJS) metrictest
+	rm -f $(OBJS) $(TESTOBJS) measuretest
 
 # ncbi toolkit; too complex, at least for now
 #INC=-I/home/ingham/bioinformatics/ncbi_cxx--18_0_0/include\

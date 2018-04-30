@@ -39,6 +39,10 @@ public:
         validate_k_min(k_p);
         k = k_p;
     };
+    kmer() {
+        std::cerr << "Fatal error: kmer constructor called with no k." << std::endl; 
+        abort();
+    };
     virtual ~kmer() {};
 
     virtual void set_kmer(const std::string kmer) = 0;

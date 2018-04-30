@@ -73,6 +73,10 @@ public:
         init_bitmask();
         set_kmerhash(hash);
     };
+    kmerint(void) : kmer(2) { // 2 is bogus, but we want to die here and not there.
+        std::cerr << "kmerint constructor called with no k; this is illegal." << std::endl;
+        abort();
+    };
 
     ~kmerint() {};
 

@@ -179,7 +179,7 @@ public:
     };
 
     kmer_storage_t string_to_hash(const std::string& kmer) const {
-        assert(kmer.length() == k);
+        //assert(kmer.length() == k);
         kmer_storage_t hash = 0;
         if (kmer.length() != k)
             errx(1, "kmer '%s' length is not k (%u)", kmer.c_str(), k);
@@ -275,7 +275,7 @@ public:
         assert(k2.kmerbitmask == kmerbitmask);
         assert(k2.kmerhash == kmerhash);
 
-        std::string k3k = "CC"; //! @todo should make this k characters long; 2 is minimum
+        std::string k3k(k,'C');
         kmerint k3(k, k3k);
         if (verbose) std::cout << "k3: " << k3 << std::endl;
         assert(k3.k == k);

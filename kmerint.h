@@ -179,7 +179,6 @@ public:
     };
 
     kmer_storage_t string_to_hash(const std::string& kmer) const {
-        //assert(kmer.length() == k);
         kmer_storage_t hash = 0;
         if (kmer.length() != k)
             errx(1, "kmer '%s' length is not k (%u)", kmer.c_str(), k);

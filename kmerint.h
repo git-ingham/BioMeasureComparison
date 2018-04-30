@@ -56,6 +56,7 @@ public:
     kmerint(const unsigned int k_p) : kmer(k_p) {
         validate_k_max(k_p);
         init_bitmask();
+        set_kmerhash(0);
     };
     kmerint(const kmerint &k_p) : kmer(k_p.k) {
         // presumably the other kmerint validated k against max_k
@@ -310,7 +311,19 @@ public:
             std::cout << "After += C: " <<  std::endl;
             ki.print("    ");
         }
-        assert(ki.get_kmerhash() == intbase::base_to_int('C')); //! @todo this is a bogus check that happens to work.  Should not be comparing a two-element kmer with a single base.
+        assert(ki.get_kmerhash() == intbase::base_to_int('C')); //! @todo this is a bogus check that happens to work.  Should not be comparing a two-element kmer with a single base.4
+        
+        // Check for regression of an annoying bug
+        std::string s(k, 'A');
+        kmerint k5(k, s);
+        intbase ib5('C');
+        kmerint k6(k);
+        k6 = k5 + ib5;
+        std::string correct = k5.get_prefix() + 'C';
+        if (k6.get_kmer().compare(correct) != 0) {
+            std::cout << k5 << " + C != " << correct << std::endl;
+            abort();
+        }
 
         std::cout << "All tests for k = " << std::dec << k << " succeeded." << std::endl;
         if (verbose) std::cout << std::endl;

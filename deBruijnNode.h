@@ -377,8 +377,9 @@ public:
 
         // Add in pointer and corresponding out pointer is updated
         for (intbase b(b.begin()); b<b.end(); ++b) {
-            kmerint next = nodevalue + b;
-            if (verbose) std::cout << "next: " << next << std::endl;
+            kmerint next(nodevalue); 
+            next += b;
+            if (verbose) std::cout << "nodevalue: " << nodevalue << "; b: " << b << "; next: " << next << std::endl;
             deBruijnNode* n2 = new deBruijnNode(next);
             if (verbose) std::cout << "n2: " << n2 << std::endl;
 

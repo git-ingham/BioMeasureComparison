@@ -68,6 +68,11 @@ public:
         init_edges();
         kmerfreq = nodefreq_p;
     };
+    //! @brief Constructor to trap illegal (no parameter) constructor calls
+    deBruijnNode() {
+        std::cerr << "Fatal: deBruijnNode constructor called with no parameters." << std::endl;
+        abort();
+    };
     /*! @brief Copy constructor
      *
      * We can only create a node by (deep) copying another node if we have access to the
@@ -93,6 +98,10 @@ public:
         // We do not delete anything because we do not allocate anything.
 
         // clear all pointers that point to us
+        clear_allptrs();
+    };
+    
+    void clear_allptrs() {
         for (intbase b=b.begin(); b != b.end(); ++b) {
             if (out_edges[b] != nullptr) {
                 out_edges[b]->clear_inptr(b, this);
@@ -129,17 +138,18 @@ public:
 
     // out edge maintenance
     deBruijnNode* get_outptr(const intbase& base) {
-        return get_outptr(base.get_int());
-    }
-    deBruijnNode* get_outptr(const unsigned int base) {
         if (out_edges[base] != nullptr)
             return out_edges[base];
         else
             return nullptr;
     };
-    deBruijnNode* get_outptr(const char base) {
-        return get_outptr(intbase::base_to_int(base));
+    deBruijnNode* get_outptr(const unsigned int base) {
+        return get_outptr(intbase(base));
     };
+    deBruijnNode* get_outptr(const char base) {
+        return get_outptr(intbase(base));
+    };
+
     void set_outptr(const intbase& base, deBruijnNode* value) {
         set_myname;
 
@@ -157,7 +167,7 @@ public:
 
         // verify that this->suffix + base matches value->kmer
         inout_consistency(myname, this, base, value);
-        consistent_ptrs();
+        //consistent_ptrs();
 
         if (out_edges[base.get_int()] != value) {
             out_edges[base.get_int()] = value;
@@ -167,11 +177,14 @@ public:
         }*/
         // assume that if the edge is already set, so is the pointer
 
-        consistent_ptrs();
+//         value->consistent_ptrs();
+//         consistent_ptrs();
+        std::cout  << std::endl;
     };
     void set_outptr(const char base, deBruijnNode* value) {
         set_outptr(intbase(base), value);
     };
+
     void clear_outptr(const intbase base) {
         if (out_edges[base] != nullptr) {
             deBruijnNode* t = out_edges[base];
@@ -198,12 +211,14 @@ public:
         inout_consistency(myname, value, base, this);
         // Consistency check passed.
 
-        if (verbose)
-            std::cout << myname << ": asked to set " << value->get_kmer() << " + " << base
-                      << " -> " << nodevalue.get_kmer() << std::endl;
+        if (verbose) {
+            std::cout << myname << std::endl;
+            std::cout << "  asked to set " << value->get_kmer() << " + " << base
+                      << " -> " << nodevalue.get_kmer();
+        }
 
         if (!inptr_exists(base, value)) { // not found, add
-            if (verbose) std::cout << "    " << myname << ": setting" << std::endl;
+            if (verbose) std::cout << "; setting";
             in_edges.emplace(base, value);
             if (value->out_edges[base.get_int()] != this) {
                 if (value->out_edges[base.get_int()] != nullptr) {
@@ -212,13 +227,13 @@ public:
                 }
                 value->out_edges[base.get_int()] = this;
             }
-//             value->set_outptr(base, this); // ensure a consistent pair of pointers
         } else {
             // else: assume that if the edge is already set, so is the back pointer
-            if (verbose) std::cout << "    " << myname << ": Edge already set" << std::endl;
+            if (verbose) std::cout << "; Edge already set" << std::endl;
         }
 
-        consistent_ptrs();
+//         value->consistent_ptrs();
+//         consistent_ptrs();
     };
     void set_inptr(const char base, deBruijnNode* value) {
         set_inptr(intbase(base), value);
@@ -242,7 +257,13 @@ public:
     };
     bool inptr_exists(const intbase& base, const deBruijnNode* from) {
         bool result = false;
+        if (in_edges.empty())
+            return result;
+
         auto it = in_edges.equal_range(base);
+        if (it.first == it.second)
+            return result;
+
         for (auto b=it.first; b != it.second; ++b) {
             if (b->second == from) {
                 result = true;
@@ -255,13 +276,17 @@ public:
     void consistent_ptrs() {
         // This function does not return in the event of inconsistency
         // verify that all outptrs have inptrs from us
+        bool OK = true;
         for (intbase b=b.begin(); b < b.end(); ++b) {
-            if (out_edges[b] != nullptr && !out_edges[b]->inptr_exists(b, this)) {
-                std::cout << "Out edge inconsistency error." << std::endl;
-                std::cout << "This node is: " << std::endl << this;
-                std::cout << "Offending base is: " << intbase(b) << std::endl;
-                std::cout << "Offending node is: " << std::endl << out_edges[b] << std::endl;
-                assert(false);
+            if (out_edges[b] != nullptr) {
+                bool c = out_edges[b]->inptr_exists(b, this);
+                if (!c) {
+                    std::cout << "Out edge inconsistency error." << std::endl;
+                    std::cout << "This node is: " << std::endl << this;
+                    std::cout << "Offending base is: " << intbase(b) << std::endl;
+                    std::cout << "Offending node is: " << std::endl << out_edges[b] << std::endl;
+                    OK = false;
+                }
             }
         }
 
@@ -272,16 +297,19 @@ public:
                 std::cout << "This node is: " << std::endl << *this;
                 std::cout << "offending base is: " << ip->first << std::endl;
                 std::cout << "offending node is: " << std::endl << ip->second << std::endl;
+                OK = false;
             }
-            assert(ip->second->get_outptr(ip->first) == this);
         }
+        assert(OK);
     };
+
     static void inout_consistency(const std::string where, deBruijnNode *in, const intbase& ib, deBruijnNode *out) {
         set_myname;
-        if (true) {
-            std::cout << myname << " in: " << in << std::endl;
-            std::cout << myname << " base: " << ib << std::endl;
-            std::cout << myname << " out: " << out << std::endl;
+        if (true) { // Cannot use verbose because this is a static function
+            std::cout << myname << std::endl;
+            std::cout << "    in: " << in;
+            std::cout << "  base: " << ib << std::endl;
+            std::cout << "    out: " << out << std::endl;
         }
         char basec = ib.get_base();
         // verify that value->suffix + base matches this->kmer
@@ -322,6 +350,7 @@ public:
         return stream;
     };
     friend std::ostream& operator<< (std::ostream &stream, deBruijnNode *node) {
+        if (node == nullptr) abort();
         stream << "Node value: " << node->nodevalue << std::endl;
         stream << "    Out edges: ";
         for (unsigned i=0; i<alphabet_size; ++i) {
@@ -368,54 +397,85 @@ public:
      * @example testdebruijnnode.cpp
      */
     void test(const bool verbose = true) {
+        if (verbose) std::cout << this;
+
         // At creation time, all pointers are null
-        for (unsigned int base=0; base<alphabet_size; ++base) {
-            assert(in_edges.empty());
-            assert(out_edges[base] == nullptr);
-        }
-        if (verbose) std::cout << "At creation, all pointers are null." << std::endl;
-
-        // Add in pointer and corresponding out pointer is updated
-        for (intbase b(b.begin()); b<b.end(); ++b) {
-            kmerint next(nodevalue); 
-            next += b;
-            if (verbose) std::cout << "nodevalue: " << nodevalue << "; b: " << b << "; next: " << next << std::endl;
-            deBruijnNode* n2 = new deBruijnNode(next);
-            if (verbose) std::cout << "n2: " << n2 << std::endl;
-
-            set_outptr(b, n2);
-            inout_consistency("deBruijnNode::test", this, b, n2);
-
-            assert(out_edges[b.get_int()] == n2);
-            // one of n2's in_edges points to this
-            auto it = in_edges.equal_range(b);
-            if (it.first != in_edges.end()) {
-                bool found = false;
-                for (auto r=it.first; r != it.second; ++r) {
-                    // look for a match
-                    if (r->second->get_outptr(b) == this) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found)
-                    assert(found);
-            } else {
-                std::cerr << "outptr was not updated when inptr was set." << std::endl;
-                assert(it.first != in_edges.end());
-            }
-
-            delete n2;
-        }
-        if (verbose) std::cout << "Pointers work OK." << std::endl;
-
-        // All pointers should be null due to destructor
         assert(in_edges.empty());
         for (unsigned int base=0; base<alphabet_size; ++base) {
             assert(out_edges[base] == nullptr);
         }
-        if (verbose) std::cout << "Destructor works OK." << std::endl;
-        if (verbose) std::cout << std::endl;
+        if (verbose) std::cout << "At creation, all pointers are null." << std::endl;
+
+        // Simple checks for adding and deleting pointers
+        // outptr test 1
+        intbase b1(b1.begin());
+        kmerint next1(nodevalue);
+        next1 += b1;
+        deBruijnNode* n1 = new deBruijnNode(next1);
+//         std::cout << nodevalue << " + " << b1 << " -> " << next1 << std::endl;
+        set_outptr(b1, n1);
+        consistent_ptrs();
+        n1->consistent_ptrs();
+        clear_outptr(b1);
+        consistent_ptrs();
+        n1->consistent_ptrs();
+        delete n1; // destructor with no pointers set works OK?
+        consistent_ptrs();
+        if (verbose) std::cout << "Simple out pointer test 1 OK." << std::endl;
+
+        // inptr test 1
+        n1 = new deBruijnNode(next1);
+//         std::cout << nodevalue << " + " << b1 << " -> " << next1 << std::endl;
+        n1->set_inptr(b1, this);
+        consistent_ptrs();
+        n1->consistent_ptrs();
+        delete n1; // destructor with no pointers set works OK?
+        consistent_ptrs();
+        if (verbose) std::cout << "Simple in pointer test 1 OK." << std::endl;
+
+        // outptr test 2
+        clear_allptrs();
+        kmerint prior1(nodevalue);
+        nodevalue = next1;
+//         std::cout << prior1 << " + " << b1 << " -> " << nodevalue << std::endl;
+        n1 = new deBruijnNode(prior1);
+        n1->set_outptr(b1, this);
+        consistent_ptrs();
+        n1->consistent_ptrs();
+        delete n1; // destructor with set pointers set works OK?
+        consistent_ptrs();
+        if (verbose) std::cout << "Simple out pointer test 2 OK." << std::endl;
+
+        // inptr test 2
+        n1 = new deBruijnNode(prior1);
+        set_inptr(b1, n1);
+        consistent_ptrs();
+        n1->consistent_ptrs();
+        clear_inptr(b1, n1);
+        consistent_ptrs();
+        n1->consistent_ptrs();
+        if (verbose) std::cout << "Simple in pointer test 2 OK." << std::endl;
+        clear_allptrs(); // Leave no mess behind from tests above
+
+        // Add out pointer and corresponding in pointer is updated
+        for (intbase b2(b2.begin()); b2<b2.end(); ++b2) {
+            kmerint next2(nodevalue);
+            next2 += b2;
+            //if (verbose) std::cout << "nodevalue: " << nodevalue << "; b: " << b << "; next: " << next2 << std::endl;
+
+            deBruijnNode* n2 = new deBruijnNode(next2);
+            if (verbose) std::cout << "n2: " << n2 << std::endl;
+
+            set_outptr(b2, n2);
+            //inout_consistency("deBruijnNode::test", this, b2, n2);
+            consistent_ptrs();
+            n2->consistent_ptrs();
+            delete n2;
+            clear_allptrs(); // leave no mess behind for next iteration
+
+            if (verbose) std::cout << "----------" << std::endl;
+        }
+        if (verbose) std::cout << "Out pointers work OK." << std::endl;
     };
 };
 

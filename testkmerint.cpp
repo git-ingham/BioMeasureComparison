@@ -3,7 +3,6 @@
 #include <log4cxx/basicconfigurator.h>
 
 #include "kmerint.h"
-#include "intbase.h"
 
 int main()
 {
@@ -11,8 +10,7 @@ int main()
 
     for (unsigned int k=kmer::min_k; k<=kmer::max_k; ++k) {
         std::cout << "testing k = " << k << std::endl;
-        kmerint* kmer = new kmerint(k);
-        kmer->test(true);
-        delete kmer;
+        kmerint kmer(k);
+        test_kmerint(kmer, true);
     }
 }

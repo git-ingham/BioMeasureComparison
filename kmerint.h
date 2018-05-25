@@ -14,7 +14,14 @@
 #include <cmath>
 
 #include "kmer.h"
-#include "intbase.h"
+#include "intbaseDNA.h"
+#include "intbase2.h"
+//#include "intbaseOPs.h"
+
+// The specific intbase subclass we use
+typedef intbaseDNA intbase_t;
+// typedef intbase2 intbase_t;
+// typedef intbaseOPs intbase_t;
 
 /*!
  * @class kmerint
@@ -23,7 +30,7 @@
 class kmerint : public kmer {
     // This meets standards vs below which is non-standard and has problems but can handle longer k-mers
     typedef uint64_t kmer_storage_t;
-    // Code for up to 32 should be OK, but 14 caused memory issues in deBruijn Graph
+    // Code for up to 32 should be OK for DNA, but 14 caused memory issues in deBruijn Graph
     //const unsigned int max_k = 32; // defined in kmer.h
     // Non-standard; cout does not work with it
 //     typedef unsigned __int128 kmer_storage_t;
@@ -32,7 +39,17 @@ class kmerint : public kmer {
     kmer_storage_t kmerbitmask;  // bit mask for all bits actually used in kmer storage
     kmer_storage_t kmerhash;
 
-    void init_bitmask() {
+    // These are cached here from the intbase subclass we use
+    unsigned int base_nbits;
+    unsigned int base_bitmask;
+    unsigned int alphabet_size;
+
+    void init_consts() {
+        intbase_t ib;
+        base_bitmask = ib.get_bitmask();
+        base_nbits = ib.get_nbits();
+        alphabet_size = ib.get_alphabetsize();
+
         kmerbitmask = 0;
         for (kmer_storage_t i=0; i<k; ++i) {
             kmerbitmask <<= base_nbits;
@@ -55,22 +72,23 @@ class kmerint : public kmer {
 public:
     kmerint(const unsigned int k_p) : kmer(k_p) {
         validate_k_max(k_p);
-        init_bitmask();
+        init_consts();
         set_kmerhash(0);
     };
     kmerint(const kmerint &k_p) : kmer(k_p.k) {
-        // presumably the other kmerint validated k against max_k
+        validate_k_max(k_p.k);  // should always succeed since k_p called this also.
+        init_consts();
         kmerhash = k_p.kmerhash;
         kmerbitmask = k_p.kmerbitmask;
     };
     kmerint(const unsigned int k_p, const std::string kmer_p) : kmer(k_p) {
         validate_k_max(k_p);
-        init_bitmask();
+        init_consts();
         set_kmer(kmer_p);
     };
     kmerint(const unsigned int k_p, const kmer_storage_t hash) : kmer(k_p) {
         validate_k_max(k_p);
-        init_bitmask();
+        init_consts();
         set_kmerhash(hash);
     };
     kmerint(void) : kmer(2) { // 2 is bogus, but we want to die here and not there.
@@ -148,12 +166,13 @@ public:
 
     // Caution: ++ and += operate very differently!
     kmerint& operator+=(const char base) {
-        kmerhash = ((kmerhash << base_nbits) & kmerbitmask) | intbase::base_to_int(base);
+        intbase_t ib(base);
+        kmerhash = ((kmerhash << ib.get_nbits()) & kmerbitmask) | ib.base_to_int(base);
         return *this;
     };
     kmerint& operator+=(const intbase &base) {
         // Add the base onto the existing kmer, leftmost base goes away
-        kmerhash = ((kmerhash << base_nbits) & kmerbitmask) | base.get_int();
+        kmerhash = ((kmerhash << base.get_nbits()) & kmerbitmask) | base.get_int();
         return *this;
     };
     kmerint operator+(const intbase &base) {
@@ -184,20 +203,22 @@ public:
     };
 
     kmer_storage_t string_to_hash(const std::string& kmer) const {
+        intbase_t ib;
         kmer_storage_t hash = 0;
         if (kmer.length() != k)
             errx(1, "kmer '%s' length is not k (%u)", kmer.c_str(), k);
         for (unsigned int i=0; i<k; ++i) {
             hash <<= base_nbits;
-            hash += intbase::base_to_int(kmer.at(i));
+            hash += ib.base_to_int(kmer.at(i));
         }
         return hash;
     };
 
     std::string hash_to_string(kmer_storage_t kmer) const {
+        intbase_t ib;
         std::string result = "";
         for (unsigned int i=0; i<k; ++i) {
-            result += intbase::int_to_base(kmer & base_bitmask);
+            result += ib.int_to_base(kmer & base_bitmask);
             kmer >>= base_nbits;
         }
         std::reverse(result.begin(),result.end());
@@ -215,10 +236,10 @@ public:
     };
 
     void print(const std::string prefix = "") const {
-        std::cout << prefix << *this << std::endl;
+        std::cout << prefix << this << std::endl;
     };
-    friend std::ostream& operator<< (std::ostream &stream, kmerint ki) {
-        stream << "{kmerhash: 0x" << std::hex << std::setfill('0') << std::setw(ki.k*base_nbits/4);
+    friend std::ostream& operator<< (std::ostream &stream, kmerint& ki) {
+        stream << "{kmerhash: 0x" << std::hex << std::setfill('0') << std::setw(ki.k*ki.base_nbits/4);
         stream << ki.kmerhash << "; ";
         stream << "kmer: " << ki.hash_to_string(ki.kmerhash) << "; ";
         stream << "k: " << ki.k << "; ";
@@ -226,110 +247,112 @@ public:
         return stream;
     };
 
-    void test(const bool verbose = true) {
-        if (verbose) print();
+    friend void test_kmerint(kmerint& ki, const bool verbose = true) {
+        intbase_t ib;
+
+        if (verbose) ki.print();
 
         // does kbitmask cover all possible values and nothing more?
-        if (verbose) std::cout << "n bits in kmerbitmask: " << count_bits(kmerbitmask)<< std::endl;
-        if (verbose) std::cout << "n bits in base_bitmask: " << count_bits(base_bitmask) << std::endl;
-        assert(count_bits(kmerbitmask) == count_bits(base_bitmask)*k);
-        assert(get_kmerbitmask() == kmerbitmask);
+        if (verbose) std::cout << "n bits in kmerbitmask: " << count_bits(ki.kmerbitmask)<< std::endl;
+        if (verbose) std::cout << "n bits in base_bitmask: " << count_bits(ki.base_bitmask) << std::endl;
+        assert(count_bits(ki.kmerbitmask) == count_bits(ki.base_bitmask)*ki.k);
+        assert(ki.get_kmerbitmask() == ki.kmerbitmask);
         if (verbose) std::cout << "kmerbitmask is OK." << std::endl;
 
         // does string_to_hash properly invert hash_to_string and vice versa?
         std::string kmer("");
-        for (unsigned int i=0; i<k; ++i)
-            kmer += intbase::int_to_base(i % alphabet_size);
+        for (unsigned int i=0; i<ki.k; ++i)
+            kmer += ib.int_to_base(i % ki.alphabet_size);
         if (verbose) std::cout << "test kmer is '" << kmer << "'" << std::endl;
 
-        kmer_storage_t h = string_to_hash(kmer);
+        kmer_storage_t h = ki.string_to_hash(kmer);
         // /2 because hex is 4 bits per char but we store 2 bases in 4 bits.
-        if (verbose) std::cout << "hash of kmer is: 0x" << std::hex << std::setfill('0') << std::setw(k*base_nbits/4) << h << std::endl;
-        std::string vv = hash_to_string(h);
+        if (verbose) std::cout << "hash of kmer is: 0x" << std::hex << std::setfill('0') << std::setw(ki.k*ki.base_nbits/4) << h << std::endl;
+        std::string vv = ki.hash_to_string(h);
         if (verbose) std::cout << "string from hash is: '" << vv << "'" << std::endl;
         assert(vv.compare(kmer) == 0);
-        assert(h == string_to_hash(vv));
+        assert(h == ki.string_to_hash(vv));
 
         // Do all setters and getters work properly?
         kmer = "";
-        for (unsigned int i=0; i<k; ++i) {
-            kmer += intbase::int_to_base(i % alphabet_size);
+        for (unsigned int i=0; i<ki.k; ++i) {
+            kmer += ib.int_to_base(i % ki.alphabet_size);
         }
-        set_kmer(kmer);
-        assert(kmer.compare(hash_to_string(kmerhash)) == 0);
-        assert(get_kmerhash() == kmerhash);
-        assert(get_kmer().compare(hash_to_string(kmerhash)) == 0);
+        ki.set_kmer(kmer);
+        assert(kmer.compare(ki.hash_to_string(ki.kmerhash)) == 0);
+        assert(ki.get_kmerhash() == ki.kmerhash);
+        assert(ki.get_kmer().compare(ki.hash_to_string(ki.kmerhash)) == 0);
 
-        for (unsigned int i=0; i<alphabet_size; ++i) {
-            set_kmerhash(i);
-            assert(kmerhash == i);
-            assert(hash_to_string(kmerhash).compare(hash_to_string(i)) == 0);
+        for (unsigned int i=0; i<ki.alphabet_size; ++i) {
+            ki.set_kmerhash(i);
+            assert(ki.kmerhash == i);
+            assert(ki.hash_to_string(ki.kmerhash).compare(ki.hash_to_string(i)) == 0);
         }
 
         // tests for each of the constructors
-        kmerint k1(k);
+        kmerint k1(ki.k);
         if (verbose) std::cout << "k1: " << k1 << std::endl;
-        assert(k1.k == k);
-        assert(k1.kmerbitmask == kmerbitmask);
+        assert(k1.k == ki.k);
+        assert(k1.kmerbitmask == ki.kmerbitmask);
         assert(k1.kmerhash == 0);
 
-        kmerint k2(*this);
+        kmerint k2(ki);
         if (verbose) std::cout << "k2: " << k2 << std::endl;
-        assert(k2.k == k);
-        assert(k2.kmerbitmask == kmerbitmask);
-        assert(k2.kmerhash == kmerhash);
+        assert(k2.k == ki.k);
+        assert(k2.kmerbitmask == ki.kmerbitmask);
+        assert(k2.kmerhash == ki.kmerhash);
 
-        std::string k3k(k,'C');
-        kmerint k3(k, k3k);
+        std::string k3k(ki.k,'C');
+        kmerint k3(ki.k, k3k);
         if (verbose) std::cout << "k3: " << k3 << std::endl;
-        assert(k3.k == k);
-        assert(k3.kmerbitmask == kmerbitmask);
-        assert(k3.kmerhash == string_to_hash(k3k));
-        
-        kmerint k4(k, string_to_hash(k3k));
+        assert(k3.k == ki.k);
+        assert(k3.kmerbitmask == ki.kmerbitmask);
+        assert(k3.kmerhash == ki.string_to_hash(k3k));
+
+        kmerint k4(ki.k, ki.string_to_hash(k3k));
         if (verbose) std::cout << "k4: " << k4 << std::endl;
-        assert(k4.k == k);
-        assert(k4.kmerbitmask == kmerbitmask);
-        assert(k4.kmerhash == string_to_hash(k3k));
+        assert(k4.k == ki.k);
+        assert(k4.kmerbitmask == ki.kmerbitmask);
+        assert(k4.kmerhash == ki.string_to_hash(k3k));
 
         // Verify ++ and -- work properly, including wraparound 0 and max value
-        kmerint ki(k, 0);
-        if (verbose) std::cout << "ki initial creation with hash 0: " << ki << std::endl;
-        assert(ki.get_kmerhash() == 0);
-        ++ki;
+        kmerint k5(ki.k, 0);
+        if (verbose) std::cout << "k5 initial creation with hash 0: " << k5 << std::endl;
+        assert(k5.get_kmerhash() == 0);
+        ++k5;
         if (verbose) {
-            std::cout << "after increment: " << ki << std::endl;
+            std::cout << "after increment: " << k5 << std::endl;
         }
-        assert(ki.get_kmerhash() == 1);
-        --ki;
+        assert(k5.get_kmerhash() == 1);
+        --k5;
         if (verbose) {
-            std::cout << "after decrement: " << ki << std::endl;
+            std::cout << "after decrement: " << k5 << std::endl;
         }
-        assert(ki.kmerhash == 0);
+        assert(k5.kmerhash == 0);
 
         //! @todo test wrapping around with ++ and --
 
         // verify += works
-        ki += 'C';
+        k5 += 'C';
         if (verbose) {
             std::cout << "After += C: " <<  std::endl;
-            ki.print("    ");
+            k5.print("    ");
         }
-        assert(ki.get_kmerhash() == intbase::base_to_int('C')); //! @todo this is a bogus check that happens to work.  Should not be comparing a two-element kmer with a single base.4
-        
+        assert(k5.get_kmerhash() == ib.base_to_int('C')); //! @todo this is a bogus check that happens to work.  Should not be comparing a two-element kmer with a single base.
+
         // Check for regression of an annoying bug
-        std::string s(k, 'A');
-        kmerint k5(k, s);
-        intbase ib5('C');
-        kmerint k6(k);
-        k6 = k5 + ib5;
+        std::string s(ki.k, 'A');
+        kmerint k6(ki.k, s);
+        intbase_t ib5('C');
+        kmerint k7(ki.k);
+        k7 = k6 + ib5;
         std::string correct = k5.get_prefix() + 'C';
-        if (k6.get_kmer().compare(correct) != 0) {
-            std::cout << k5 << " + C != " << correct << std::endl;
+        if (k7.get_kmer().compare(correct) != 0) {
+            std::cout << k6 << " + C != " << correct << std::endl;
             abort();
         }
 
-        std::cout << "All tests for k = " << std::dec << k << " succeeded." << std::endl;
+        std::cout << "All tests for k = " << std::dec << ki.k << " succeeded." << std::endl;
         if (verbose) std::cout << std::endl;
     };
 };

@@ -7,25 +7,25 @@
 const unsigned int nDNAbases = 5;
 std::string DNAbases[nDNAbases] = {"A", "C", "G", "T", endmarker};
 
-class intbaseDNA : public base {
+class intbaseDNA : public intbase {
     void set_consts() {
         bases.clear(); // WARNING: not a good idea to to use multiple intbase subclasses simultaneously!
         for (unsigned int i=0; i<nDNAbases; ++i) {
             bases.push_back(DNAbases[i]);
         }
-        base::set_consts();
+        intbase::set_consts();
     };
 
 public:
-    intbaseDNA() : base() {
+    intbaseDNA() : intbase() {
         set_consts();
     };
-    intbaseDNA(base_t b) : base() {
+    intbaseDNA(base_t b) : intbase() {
         set_consts();
-        base::init_logging();
+        intbase::init_logging();
         base_value = base_to_int(b);
     };
-    intbaseDNA(const unsigned int b) : base() {
+    intbaseDNA(const unsigned int b) : intbase() {
         set_consts();
         if (b <= get_alphabetsize())
             base_value = b;
@@ -34,7 +34,7 @@ public:
             abort();
         }
     };
-    intbaseDNA(const intbaseDNA &ib) : base() {
+    intbaseDNA(const intbaseDNA &ib) : intbase() {
         set_consts();
         base_value = ib.base_value;
     };

@@ -10,25 +10,25 @@
 const unsigned int n2bases = 3;
 std::string bases2[n2bases] = {"A", "C", endmarker};
 
-class intbase2 : public base {
+class intbase2 : public intbase {
     void set_consts() {
         bases.clear(); // WARNING: not a good idea to to use multiple intbase subclasses!
         for (unsigned int i=0; i<n2bases; ++i) {
             bases.push_back(bases2[i]);
         }
-        base::set_consts();
+        intbase::set_consts();
     };
 
 public:
-    intbase2() : base() {
+    intbase2() : intbase() {
         set_consts();
     };
-    intbase2(base_t b) : base() {
+    intbase2(base_t b) : intbase() {
         set_consts();
-        base::init_logging();
+        intbase::init_logging();
         base_value = base_to_int(b);
     };
-    intbase2(const unsigned int b) : base() {
+    intbase2(const unsigned int b) : intbase() {
         set_consts();
         if (b <= get_alphabetsize())
             base_value = b;
@@ -37,7 +37,7 @@ public:
             abort();
         }
     };
-    intbase2(const intbase2 &ib) : base() {
+    intbase2(const intbase2 &ib) : intbase() {
         set_consts();
         base_value = ib.base_value;
     };

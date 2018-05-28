@@ -10,20 +10,21 @@
 #include <string>
 #include <log4cxx/logger.h>
 
-/*! @class base
+/*! @class intbase
  * @brief a class to hold the knowledge about mapping sequence bases to integers and vice versa
  */
 
 const std::string endmarker = ">";
 
-typedef std::string base_t;
-typedef std::vector<base_t> bases_t;
+typedef std::string base_t; //!< The type of a base
+typedef std::vector<base_t> bases_t; //!< a vector of bases
+typedef std::map<base_t, unsigned int> mapping_t; //!< for mapping bases to integers
+
+// these are global to avoid a copy in every object created.
 static bases_t realbases;   //!< All legal bases plus end marker
+static mapping_t realmap; //!< reverse mapping base to int
 
-typedef std::map<base_t, unsigned int> mapping_t;
-static mapping_t realmap;
-
-class base {
+class intbase {
 protected:
     // !!! bases *must* be initiaized in a subclass.
     bases_t &bases = realbases;
@@ -57,7 +58,7 @@ protected:
     };
 
 public:
-    base() {
+    intbase() {
         // set_consts must be called by subclass
         init_logging();
         base_value = begin(); // initialized to first legal value unless via a constructor with an initial value.
@@ -128,13 +129,13 @@ public:
         return 0;
     };
 
-    base& operator=(const base &i) {
+    intbase& operator=(const intbase &i) {
         if (this == &i)      // Same object?
             return *this;
         base_value = i.base_value;
         return *this;
     };
-    base& operator=(const unsigned int i) {
+    intbase& operator=(const unsigned int i) {
         if (i >= alphabet_size) {
             LOG4CXX_FATAL(logger, "i >= alphabet_size");
             abort();
@@ -142,7 +143,7 @@ public:
         base_value = i;
         return *this;
     };
-    base& operator++(void) { // Allowed to equal base::end()
+    intbase& operator++(void) { // Allowed to equal base::end()
         if (base_value < get_alphabetsize())
             ++base_value;
         else if (base_value == get_alphabetsize()) {
@@ -154,26 +155,26 @@ public:
         }
         return *this;
     };
-    base& operator--(void) {
+    intbase& operator--(void) {
         if (base_value > 0)
             --base_value;
         else // base == alphabet_size-1
             base_value = alphabet_size-1;
         return *this;
     };
-    bool operator<(const base& rhs) const {
+    bool operator<(const intbase& rhs) const {
         return base_value < rhs.get_int();
     };
     bool operator<(const unsigned int rhs) const {
         return base_value < rhs;
     };
-    bool operator>(const base& rhs) const {
+    bool operator>(const intbase& rhs) const {
         return base_value > rhs.get_int();
     };
-    bool operator==(const base& rhs) const {
+    bool operator==(const intbase& rhs) const {
         return base_value == rhs.get_int();
     };
-    bool operator!=(const base& rhs) const {
+    bool operator!=(const intbase& rhs) const {
         return !(*this == rhs);
     };
     //! @todo need rest of relational operators
@@ -195,7 +196,7 @@ public:
     //! @brief Unit test for base class
     //! subclasses need their own tests specific to the subclass
     //! ibp must be a freshly-created instance
-    friend void test_base(base& ibp) {
+    friend void test_intbase(intbase& ibp) {
         if (ibp.alphabet_size == 0) {
             LOG4CXX_FATAL(ibp.logger, "test_base must be called on a subclass!");
             abort();
@@ -268,7 +269,7 @@ public:
         }
         LOG4CXX_DEBUG(ibp.logger, "After -- loop, ib is: " << ibp);
     };
-    friend std::ostream& operator<< (std::ostream &stream, base ib) {
+    friend std::ostream& operator<< (std::ostream &stream, intbase ib) {
         stream << "{" << std::dec << ib.get_base() << " (" << ib.get_int() << ")}";
         return stream;
     };
@@ -277,9 +278,9 @@ public:
 namespace std
 {
 template <>
-struct hash<base>
+struct hash<intbase>
 {
-    size_t operator()(const base& ib) const
+    size_t operator()(const intbase& ib) const
     {
         return hash<unsigned int>()(ib.get_int());
     }

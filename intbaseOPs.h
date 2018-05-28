@@ -547,25 +547,25 @@ std::string OPsbases[nOPsbases] = {
     "XSETBV"
 };
 
-class intbaseOPs : public base {
+class intbaseOPs : public intbase {
     void set_consts() {
         bases.clear(); // WARNING: not a good idea to to use multiple intbase subclasses!
         for (unsigned int i=0; i<nOPsbases; ++i) {
             bases.push_back(OPsbases[i]);
         }
-        base::set_consts();
+        intbase::set_consts();
     };
 
 public:
-    intbaseOPs() : base() {
+    intbaseOPs() : intbase() {
         set_consts();
     };
-    intbaseOPs(base_t b) : base() {
+    intbaseOPs(base_t b) : intbase() {
         set_consts();
-        base::init_logging();
+        intbase::init_logging();
         base_value = base_to_int(b);
     };
-    intbaseOPs(const unsigned int b) : base() {
+    intbaseOPs(const unsigned int b) : intbase() {
         set_consts();
         if (b <= get_alphabetsize())
             base_value = b;
@@ -574,7 +574,7 @@ public:
             abort();
         }
     };
-    intbaseOPs(const intbaseOPs &ib) : base() {
+    intbaseOPs(const intbaseOPs &ib) : intbase() {
         set_consts();
         base_value = ib.base_value;
     };

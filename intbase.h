@@ -6,35 +6,38 @@
  * This class *must* be subclassed.
  */
 
-#include <err.h>
-#include <iostream>
+#include <algorithm>
+#include <string>
 #include <log4cxx/logger.h>
 
-/*! @class intbase
+/*! @class base
  * @brief a class to hold the knowledge about mapping sequence bases to integers and vice versa
  */
 
-class intbase {
-    // !!! bases *must* be initiaized in a subclass.
+const std::string endmarker = ">";
+
+typedef std::string base_t;
+typedef std::vector<base_t> bases_t;
+static bases_t realbases;   //!< All legal bases plus end marker
+
+typedef std::map<base_t, unsigned int> mapping_t;
+static mapping_t realmap;
+
+class base {
 protected:
-    std::string bases;   //!< All legal bases plus end indicator (>)
+    // !!! bases *must* be initiaized in a subclass.
+    bases_t &bases = realbases;
     unsigned int alphabet_size = 0; //!< Number of bases we work with
     unsigned int base_bitmask;  //!< bitmask for a single base in an integer
     unsigned int base_nbits;    //!< Number of bits used to store a base
-    std::vector<char> mapping; //!< character to base value mapping.  Must match bases
+    mapping_t &mapping = realmap; //!< character to base value mapping.  Must match bases
 
     //! The base value
-    unsigned int base;
-
-    // logging
-    log4cxx::LoggerPtr logger = nullptr;
-    void init_logging(void) {
-        logger = log4cxx::Logger::getLogger("intbase");
-    };
+    unsigned int base_value;
 
     // Everything depends on the length of bases
     void set_consts() {
-        alphabet_size = bases.length()-1;
+        alphabet_size = bases.size()-1;
         base_nbits = 0;
         base_bitmask = 0;
         unsigned int t = alphabet_size;
@@ -42,44 +45,63 @@ protected:
             base_bitmask |= 1 << base_nbits;
             ++base_nbits;
         }
-        for (unsigned int i=0; i< bases.length(); ++i) {
-            mapping.push_back(bases[i]);
+        for (unsigned int i=0; i< bases.size(); ++i) {
+            mapping.insert(std::pair<base_t, unsigned int>(bases[i], i));
         }
     };
 
-public:
-    intbase() {
-        init_logging();
-        base = begin(); // initialized to first legal value unless via a constructor with an initial value.
+    // logging
+    log4cxx::LoggerPtr logger = nullptr;
+    void init_logging(void) {
+        logger = log4cxx::Logger::getLogger("base");
     };
 
-    unsigned int get_alphabetsize() {
+public:
+    base() {
+        // set_consts must be called by subclass
+        init_logging();
+        base_value = begin(); // initialized to first legal value unless via a constructor with an initial value.
+    };
+
+    unsigned int get_nbits() const {
+        return base_nbits;
+    };
+    unsigned int get_bitmask() const {
+        return base_bitmask;
+    };
+    unsigned int get_alphabetsize() const {
+        if (alphabet_size == 0) {
+            LOG4CXX_FATAL(logger, "alphabet_size is 0!");
+            abort();
+        }
         return alphabet_size;
     }
     unsigned int get_int() const {
-        return base;
+        return base_value;
     };
-    char get_base() const {
-        return bases[base];
+    base_t get_base() const {
+        return bases[base_value];
     };
     void set_base(unsigned int b) {
         if (b < get_alphabetsize()) {
-            base = b;
+            base_value = b;
         } else {
             LOG4CXX_FATAL(logger, "base " << b << " >= alphabet size " << get_alphabetsize());
             abort();
         }
     };
-    void set_base(const char b) {
+    void set_base(const base_t b) {
         set_base(base_to_int(b));
     };
-    unsigned int base_to_int(const char base) {
+    unsigned int base_to_int(const base_t base_p) {
+        std::string b = base_p; // So we can make it uppercase
+        std::transform(b.begin(), b.end(), b.begin(), ::toupper); // ensure b is all uc
         for (unsigned int i=0; i<get_alphabetsize(); ++i) {
-            if (base == bases[i] || tolower(base) == bases[i])
+            if (b.compare(bases[i]) == 0)
                 return i;
         }
-        log4cxx::LoggerPtr logger(log4cxx::Logger::getLogger("intbase"));
-        LOG4CXX_FATAL(logger, "base_to_int: unknown base '" << base << "'");
+        log4cxx::LoggerPtr logger(log4cxx::Logger::getLogger("base"));
+        LOG4CXX_FATAL(logger, "base_to_int: unknown base '" << b << "'");
         abort();
         /*NOTREACHED*/
     };
@@ -91,13 +113,13 @@ public:
     * @param value The integer to convert to the corresponding character base
     * @return char value of the base.
     */
-    char int_to_base(unsigned int value) {
+    base_t int_to_base(unsigned int value) {
         if (value < get_alphabetsize()) {
-            return mapping[value];
+            return bases[value];
         } else if (value == get_alphabetsize()) {
-            return '>';
+            return endmarker;
         } else { // fatal error
-            log4cxx::LoggerPtr logger(log4cxx::Logger::getLogger("intbase"));
+            log4cxx::LoggerPtr logger(log4cxx::Logger::getLogger("base"));
 
             LOG4CXX_FATAL(logger, "int_to_base: invalid base value: " << value << " (max " << alphabet_size << ")");
             abort();
@@ -106,52 +128,52 @@ public:
         return 0;
     };
 
-    intbase& operator=(const intbase &i) {
+    base& operator=(const base &i) {
         if (this == &i)      // Same object?
             return *this;
-        base = i.base;
+        base_value = i.base_value;
         return *this;
     };
-    intbase& operator=(const unsigned int i) {
+    base& operator=(const unsigned int i) {
         if (i >= alphabet_size) {
             LOG4CXX_FATAL(logger, "i >= alphabet_size");
             abort();
         }
-        base = i;
+        base_value = i;
         return *this;
     };
-    intbase& operator++(void) { // Allowed to equal intbase::end()
-        if (base < get_alphabetsize())
-            ++base;
-        else if (base == get_alphabetsize()) {
+    base& operator++(void) { // Allowed to equal base::end()
+        if (base_value < get_alphabetsize())
+            ++base_value;
+        else if (base_value == get_alphabetsize()) {
             // do nothing; we are at the end and cannot increment more
         }
         else { // base > get_alphabetsize(); we should never be here
-            LOG4CXX_FATAL(logger, "intbase ++ on too-large value!");
+            LOG4CXX_FATAL(logger, "base ++ on too-large value!");
             abort();
         }
         return *this;
     };
-    intbase& operator--(void) {
-        if (base > 0)
-            --base;
+    base& operator--(void) {
+        if (base_value > 0)
+            --base_value;
         else // base == alphabet_size-1
-            base = alphabet_size-1;
+            base_value = alphabet_size-1;
         return *this;
     };
-    bool operator<(const intbase& rhs) const {
-        return base < rhs.get_int();
+    bool operator<(const base& rhs) const {
+        return base_value < rhs.get_int();
     };
     bool operator<(const unsigned int rhs) const {
-        return base < rhs;
+        return base_value < rhs;
     };
-    bool operator>(const intbase& rhs) const {
-        return base > rhs.get_int();
+    bool operator>(const base& rhs) const {
+        return base_value > rhs.get_int();
     };
-    bool operator==(const intbase& rhs) const {
-        return base == rhs.get_int();
+    bool operator==(const base& rhs) const {
+        return base_value == rhs.get_int();
     };
-    bool operator!=(const intbase& rhs) const {
+    bool operator!=(const base& rhs) const {
         return !(*this == rhs);
     };
     //! @todo need rest of relational operators
@@ -170,17 +192,17 @@ public:
         std::cout << this;
     };
 
-    //! @brief Unit test for intbase class
+    //! @brief Unit test for base class
     //! subclasses need their own tests specific to the subclass
     //! ibp must be a freshly-created instance
-    friend void test_intbase(intbase& ibp) {
+    friend void test_base(base& ibp) {
         if (ibp.alphabet_size == 0) {
-            LOG4CXX_FATAL(ibp.logger, "test_intbase must be called on a subclass!");
+            LOG4CXX_FATAL(ibp.logger, "test_base must be called on a subclass!");
             abort();
         }
 
-        if (ibp.bases.length() != ibp.get_alphabetsize()+1) {
-            LOG4CXX_FATAL(ibp.logger, "number of bases does not equal alphabet_size+1!");
+        if (ibp.bases.size() != ibp.get_alphabetsize()+1) {
+            LOG4CXX_FATAL(ibp.logger, "number of bases " << ibp.bases.size() << " does not equal alphabet_size(" << ibp.get_alphabetsize() << ") + 1 !");
             abort();
         }
 
@@ -196,27 +218,27 @@ public:
                 abort();
             }
 
-            char base = ibp.int_to_base(i);
-            unsigned int ui = ibp.base_to_int(base);
+            base_t b = ibp.int_to_base(i);
+            unsigned int ui = ibp.base_to_int(b);
             if (ui != i) {
                 LOG4CXX_FATAL(ibp.logger, "base_to_int(bases[i]) != i");
                 abort();
             }
 
-            LOG4CXX_TRACE(ibp.logger, "i: " << std::dec << i << " converts to '" << base << "'.");
+            LOG4CXX_TRACE(ibp.logger, "i: " << std::dec << i << " converts to '" << b << "'.");
 
-            base = ibp.bases.at(i);
-            ui = ibp.base_to_int(base);
+            b = ibp.bases.at(i);
+            ui = ibp.base_to_int(b);
             if (ui != i) {
                 LOG4CXX_FATAL(ibp.logger, "ui != i");
                 abort();
             }
 
-            LOG4CXX_TRACE(ibp.logger, "base '" << base << "' converts to " << std::dec << ui << ".");
+            LOG4CXX_TRACE(ibp.logger, "base '" << b << "' converts to " << std::dec << ui << ".");
         }
         LOG4CXX_INFO(ibp.logger, "base_to_int and int_to_base work OK.");
 
-        LOG4CXX_DEBUG(ibp.logger, "Newly-created intbase: " << ibp);
+        LOG4CXX_DEBUG(ibp.logger, "Newly-created base: " << ibp);
 
         // start at min value
         if (ibp.get_int() != ibp.begin()) {
@@ -246,7 +268,7 @@ public:
         }
         LOG4CXX_DEBUG(ibp.logger, "After -- loop, ib is: " << ibp);
     };
-    friend std::ostream& operator<< (std::ostream &stream, intbase ib) {
+    friend std::ostream& operator<< (std::ostream &stream, base ib) {
         stream << "{" << std::dec << ib.get_base() << " (" << ib.get_int() << ")}";
         return stream;
     };
@@ -255,9 +277,9 @@ public:
 namespace std
 {
 template <>
-struct hash<intbase>
+struct hash<base>
 {
-    size_t operator()(const intbase& ib) const
+    size_t operator()(const base& ib) const
     {
         return hash<unsigned int>()(ib.get_int());
     }

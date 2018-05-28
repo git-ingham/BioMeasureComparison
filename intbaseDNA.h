@@ -4,33 +4,39 @@
 #include "intbase.h"
 #include <string>
 
-class intbaseDNA : public intbase {
+const unsigned int nDNAbases = 5;
+std::string DNAbases[nDNAbases] = {"A", "C", "G", "T", endmarker};
+
+class intbaseDNA : public base {
     void set_consts() {
-        bases = "ACGT>";
-        intbase::set_consts();
+        bases.clear(); // WARNING: not a good idea to to use multiple intbase subclasses simultaneously!
+        for (unsigned int i=0; i<nDNAbases; ++i) {
+            bases.push_back(DNAbases[i]);
+        }
+        base::set_consts();
     };
 
 public:
-    intbaseDNA() : intbase() {
+    intbaseDNA() : base() {
         set_consts();
     };
-    intbaseDNA(const char b) : intbase() {
+    intbaseDNA(base_t b) : base() {
         set_consts();
-        intbase::init_logging();
-        base = base_to_int(b);
+        base::init_logging();
+        base_value = base_to_int(b);
     };
-    intbaseDNA(const unsigned int b) : intbase() {
+    intbaseDNA(const unsigned int b) : base() {
         set_consts();
         if (b <= get_alphabetsize())
-            base = b;
+            base_value = b;
         else {
             LOG4CXX_FATAL(logger, "intbaseDNA constructor: Invalid int base value b " << b << " should be in [0.." << get_alphabetsize() << "].  " << get_alphabetsize() << " is invalid, but is the end indicator.");
             abort();
         }
     };
-    intbaseDNA(const intbaseDNA &ib) : intbase() {
+    intbaseDNA(const intbaseDNA &ib) : base() {
         set_consts();
-        base = ib.base;
+        base_value = ib.base_value;
     };
     friend void test_intbaseDNA(intbaseDNA& ib) {
         // >, <, ==, and != operators work

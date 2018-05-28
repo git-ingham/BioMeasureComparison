@@ -6,7 +6,7 @@
 #include "intbase.h"
 
 const unsigned int nOPsbases = 538;
-std::string OPsbases[nOPsbases] = {
+static std::string OPsbases[nOPsbases] = {
     "ADC",
     "ADD",
     "ADDPD",

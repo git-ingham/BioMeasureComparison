@@ -54,7 +54,7 @@ protected:
     // logging
     log4cxx::LoggerPtr logger = nullptr;
     void init_logging(void) {
-        logger = log4cxx::Logger::getLogger("base");
+        logger = log4cxx::Logger::getLogger("intbase");
     };
 
 public:

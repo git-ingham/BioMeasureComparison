@@ -8,6 +8,8 @@
 int main()
 {
     log4cxx::BasicConfigurator::configure();
+    
+    // Select only one to test and uncomment the proper include file above
 
     std::cout << "Testing intbaseDNA." << std::endl;
     intbaseDNA ibdna;

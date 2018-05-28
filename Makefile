@@ -65,7 +65,7 @@ testdebruijnnode: $(BUILDDIR)/testdebruijnnode.o deBruijnNode.h\
 $(BUILDDIR)/testdebruijnnode.o: $(SRCDIR)/testdebruijnnode.cpp $(SRCDIR)/deBruijnNode.h
 	$(CXX) -c $(CXXFLAGS) -o $@ testdebruijnnode.cpp
 
-$(BUILDDIR)/testintbase.o: testintbase.cpp $(SRCDIR)/intbase.h $(SRCDIR)/intbaseDNA.h $(SRCDIR)/intbase2.h
+$(BUILDDIR)/testintbase.o: testintbase.cpp $(SRCDIR)/intbase.h $(SRCDIR)/intbaseDNA.h $(SRCDIR)/intbase2.h $(SRCDIR)/intbaseOPs.h
 	$(CXX) -c $(CXXFLAGS) -o $@ testintbase.cpp
 testintbase: $(BUILDDIR)/testintbase.o $(SRCDIR)/intbase.h
 	$(CXX) $(CXXFLAGS) -o $@ $(LDFLAGS) $(BUILDDIR)/testintbase.o 
